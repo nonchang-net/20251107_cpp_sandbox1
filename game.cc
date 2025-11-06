@@ -6,6 +6,7 @@
 
 #include "game_manager.h"
 
+// undone: このstatic持ちやめる方法ないかね?
 static MyGame::GameManager gameManager;
 
 SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
@@ -13,8 +14,23 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
 }
 
 SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event) {
-  if (event->type == SDL_EVENT_QUIT) {
-    return SDL_APP_SUCCESS;
+  switch (event->type) {
+    case SDL_EVENT_QUIT:
+      return SDL_APP_SUCCESS;
+    case SDL_EVENT_JOYSTICK_ADDED:
+      gameManager.addJoystick(event);
+      break;
+    case SDL_EVENT_JOYSTICK_REMOVED:
+      gameManager.removeJoystick(event);
+      break;
+    case SDL_EVENT_JOYSTICK_HAT_MOTION:
+      // TODO: impl次第
+      // return handle_hat_event_(ctx, event->jhat.value);
+    case SDL_EVENT_KEY_DOWN:
+      // TODO: impl次第
+      // return handle_key_event_(ctx, event->key.scancode);
+    default:
+      break;
   }
   return SDL_APP_CONTINUE;
 }
