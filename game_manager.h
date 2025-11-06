@@ -33,8 +33,8 @@ class GameManager {
   const SDL_AppResult update();
   const void addJoystick(SDL_Event* event);
   const void removeJoystick(SDL_Event* event);
-  const void handleHatEvent(Uint8);
-  const void handleKeyEvent(SDL_Scancode);
+  const SDL_AppResult handleHatEvent(Uint8);
+  const SDL_AppResult handleKeyEvent(SDL_Scancode);
 };
 
 #pragma region HANDLER
@@ -54,11 +54,11 @@ const void GameManager::removeJoystick(SDL_Event* event) {
     joystick = NULL;
   }
 }
-const void GameManager::handleHatEvent(Uint8 jhatValue) {
-  snakeGame->handleHatEvent(jhatValue);
+const SDL_AppResult GameManager::handleHatEvent(Uint8 jhatValue) {
+  return snakeGame->handleHatEvent(jhatValue);
 }
-const void GameManager::handleKeyEvent(SDL_Scancode scancode) {
-  snakeGame->handleKeyEvent(scancode);
+const SDL_AppResult GameManager::handleKeyEvent(SDL_Scancode scancode) {
+  return snakeGame->handleKeyEvent(scancode);
 }
 
 #pragma endregion HANDLER

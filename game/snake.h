@@ -3,6 +3,8 @@
 
 #include <SDL3/SDL.h>
 
+#include <iostream>
+
 namespace MyGame {
 
 const int STEP_RATE_IN_MILLISECONDS = 125;
@@ -211,6 +213,7 @@ class SnakeGame {
   }
 
   SDL_AppResult handleKeyEvent(SDL_Scancode key_code) {
+    std::cout << key_code << std::endl;
     switch (key_code) {
       /* Quit. */
       case SDL_SCANCODE_ESCAPE:

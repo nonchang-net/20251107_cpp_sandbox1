@@ -24,11 +24,9 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event) {
       gameManager.removeJoystick(event);
       break;
     case SDL_EVENT_JOYSTICK_HAT_MOTION:
-      // TODO: impl次第
-      // return handle_hat_event_(ctx, event->jhat.value);
+      return gameManager.handleHatEvent(event->jhat.value);
     case SDL_EVENT_KEY_DOWN:
-      // TODO: impl次第
-      // return handle_key_event_(ctx, event->key.scancode);
+      return gameManager.handleKeyEvent(event->key.scancode);
     default:
       break;
   }
