@@ -5,7 +5,7 @@
 
 #include <iostream>
 
-namespace MyGame {
+namespace MyGame::SnakeGame {
 
 const int STEP_RATE_IN_MILLISECONDS = 125;
 const int SNAKE_BLOCK_SIZE_IN_PIXELS = 24;
@@ -34,7 +34,7 @@ typedef enum {
   SNAKE_DIR_DOWN
 } SnakeDirection;
 
-// TODO: これは独立クラスとすべきかな？ structで済むならその方が良いのかな
+// undone: これは独立クラスとすべきかな？ structで済むならその方が良いのかな
 typedef struct {
   unsigned char cells[(SNAKE_MATRIX_SIZE * SNAKE_CELL_MAX_BITS) / 8U];
   char head_xpos;
@@ -45,14 +45,6 @@ typedef struct {
   char inhibit_tail_step;
   unsigned occupied_cells;
 } SnakeContext;
-
-// note: これはSnakeGameのprivateステートとするのが妥当かな
-// typedef struct {
-//   SDL_Window* window;
-//   SDL_Renderer* renderer;
-//   SnakeContext snake_ctx;
-//   Uint64 last_step;
-// } AppState;
 
 #pragma region SnakeGame
 
@@ -214,7 +206,7 @@ class SnakeGame {
   }
 
   SDL_AppResult handleKeyEvent(SDL_Scancode key_code) {
-    std::cout << key_code << std::endl;
+    // std::cout << key_code << std::endl;
     switch (key_code) {
       /* Quit. */
       case SDL_SCANCODE_ESCAPE:
@@ -303,6 +295,6 @@ class SnakeGame {
 
 #pragma endrigon SnakeGame
 
-}  // namespace MyGame
+}  // namespace MyGame::SnakeGame
 
 #endif

@@ -20,7 +20,7 @@ class GameManager {
   SDL_Joystick* joystick = NULL;
   DrawHelper* painter = NULL;
   TestImpl1::TestImpl1* impl1 = NULL;
-  SnakeGame* snakeGame = NULL;
+  SnakeGame::SnakeGame* snakeGame = NULL;
 
  public:
   ~GameManager() {
@@ -86,7 +86,7 @@ const SDL_AppResult GameManager::init() {
   painter = new DrawHelper(renderer);
 
   // impl1 = new TestImpl1::TestImpl1();
-  snakeGame = new SnakeGame(renderer);
+  snakeGame = new SnakeGame::SnakeGame(renderer);
 
   return SDL_APP_CONTINUE;
 }
