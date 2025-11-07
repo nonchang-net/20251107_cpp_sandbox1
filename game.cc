@@ -6,35 +6,45 @@
 
 #include "game_manager.h"
 
-// undone: このstatic持ちやめる方法ないかね?
-static MyGame::GameManager gameManager;
+typedef struct {
+  MyGame::GameManager gameManager;
+} AppState;
 
 SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
-  return gameManager.init();
+  AppState* as = (AppState*)SDL_calloc(1, sizeof(AppState));
+  if (!as) {
+    return SDL_APP_FAILURE;
+  }
+  *appstate = as;
+  return as->gameManager.init();
 }
 
 SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event) {
+  AppState* as = (AppState*)appstate;
   switch (event->type) {
     case SDL_EVENT_QUIT:
       return SDL_APP_SUCCESS;
     case SDL_EVENT_JOYSTICK_ADDED:
-      gameManager.addJoystick(event);
+      as->gameManager.addJoystick(event);
       break;
     case SDL_EVENT_JOYSTICK_REMOVED:
-      gameManager.removeJoystick(event);
+      as->gameManager.removeJoystick(event);
       break;
     case SDL_EVENT_JOYSTICK_HAT_MOTION:
-      return gameManager.handleHatEvent(event->jhat.value);
+      return as->gameManager.handleHatEvent(event->jhat.value);
     case SDL_EVENT_KEY_DOWN:
-      return gameManager.handleKeyEvent(event->key.scancode);
+      return as->gameManager.handleKeyEvent(event->key.scancode);
     case SDL_EVENT_USER:
-      return gameManager.handleUserEvent(event);
+      return as->gameManager.handleUserEvent(event);
     default:
       break;
   }
   return SDL_APP_CONTINUE;
 }
 
-SDL_AppResult SDL_AppIterate(void* appstate) { return gameManager.update(); }
+SDL_AppResult SDL_AppIterate(void* appstate) {
+  AppState* as = (AppState*)appstate;
+  return as->gameManager.update();
+}
 
 void SDL_AppQuit(void* appstate, SDL_AppResult result) {}
