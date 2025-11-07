@@ -28,6 +28,13 @@ typedef enum {
   SNAKE_CELL_FOOD = 5U
 } SnakeCell;
 
+// TODO: C++ではEnum Classを使うべきとのこと
+// enum class SnakeCell : unsigned {
+//   Nothing = 0U,
+//   SRight = 1U,
+//   // ...
+// };
+
 typedef enum {
   SNAKE_DIR_RIGHT,
   SNAKE_DIR_UP,

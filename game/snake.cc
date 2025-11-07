@@ -168,7 +168,6 @@ SDL_AppResult SnakeGame::handleSdlEvent(SDL_Event* event) {
       break;
   }
   return SDL_APP_CONTINUE;
-  return SDL_APP_CONTINUE;
 }
 
 SDL_AppResult SnakeGame::handleKeyEvent(SDL_Scancode key_code) {

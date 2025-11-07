@@ -4,14 +4,15 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 
+#include <memory>
+
 #include "game/snake.h"
 #include "game/test_impl_2.h"
 #include "game_constant.h"
 #include "game_manager/game_manager.h"
 
 struct AppState {
-  MyGame::GameManager* gameManager = nullptr;
-  MyGame::GameImpl* gameImpl = nullptr;
+  std::unique_ptr<MyGame::GameManager> gameManager;
 };
 
 SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
@@ -41,14 +42,15 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
                                    SDL_LOGICAL_PRESENTATION_LETTERBOX);
 
   // ゲーム実装初期化
-  MyGame::GameImpl* gameImpl = new MyGame::TestImpl2(renderer);
+  auto gameImpl = std::make_unique<MyGame::TestImpl2>(renderer);
   // 差し替えるテスト
-  // gameImpl = new MyGame::SnakeGame::SnakeGame(renderer);
-  MyGame::GameManager* gameManager = new MyGame::GameManager(gameImpl);
+  // auto gameImpl = std::make_unique<MyGame::SnakeGame::SnakeGame>(renderer);
+
+  // placement newでAppStateをSDL_callocで確保済みの領域に構築
+  as = new (as)
+      AppState{std::make_unique<MyGame::GameManager>(std::move(gameImpl))};
 
   *appstate = as;
-  as->gameManager = gameManager;
-  as->gameImpl = gameImpl;
   return SDL_APP_CONTINUE;
 }
 
@@ -74,4 +76,11 @@ SDL_AppResult SDL_AppIterate(void* appstate) {
   return as->gameManager->update();
 }
 
-void SDL_AppQuit(void* appstate, SDL_AppResult result) {}
+void SDL_AppQuit(void* appstate, SDL_AppResult result) {
+  if (appstate != nullptr) {
+    AppState* as = (AppState*)appstate;
+    // note: placement newで構築したので明示的にデストラクタを呼ぶ
+    as->~AppState();
+    SDL_free(as);
+  }
+}

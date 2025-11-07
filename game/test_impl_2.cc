@@ -23,7 +23,7 @@ SDL_AppResult TestImpl2::update() {
   // note: RenderPointsは括りだし失敗中。まあいらんかなw
   // painter->SetColor(255, 255, 255)->Points(points);
   painter.SetColor(255, 255, 255);
-  SDL_RenderPoints(renderer, points, SDL_arraysize(points));
+  SDL_RenderPoints(renderer, points.data(), points.size());
 
   painter.SetColor(255, 255, 0)
       ->Line(0, 0, MyGame::CANVAS_WIDTH, MyGame::CANVAS_HEIGHT)

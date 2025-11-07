@@ -2,6 +2,7 @@
 
 namespace MyGame {
 
+// note: SDL APIはconst char*を要求
 constexpr const char* APP_TITLE = "My SDL3 Sandbox1";
 constexpr const char* VERSION_CODE = "0.0.1";
 constexpr const char* APP_IDENTIFIER = "net.nonchang.sdl3.sandbox1";
