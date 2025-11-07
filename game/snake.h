@@ -4,6 +4,8 @@
 
 #include <iostream>
 
+#include "../game_manager/game_impl.h"
+
 namespace MyGame::SnakeGame {
 
 const int STEP_RATE_IN_MILLISECONDS = 125;
@@ -47,7 +49,7 @@ typedef struct {
 
 #pragma region SnakeGame
 
-class SnakeGame {
+class SnakeGame : public GameImpl {
  private:
   SnakeContext snake_ctx;
   Uint64 last_step;
@@ -65,8 +67,9 @@ class SnakeGame {
  public:
   SnakeGame(SDL_Renderer* renderer);
   SDL_AppResult handleKeyEvent(SDL_Scancode key_code);
-  SDL_AppResult handleHatEvent(Uint8 hat);
-  SDL_AppResult handleUserEvent(SDL_Event* event);
+  // SDL_AppResult handleHatEvent(Uint8 hat);
+  // SDL_AppResult handleUserEvent(SDL_Event* event);
+  SDL_AppResult handleSdlEvent(SDL_Event*);
   SDL_AppResult update();
 };
 

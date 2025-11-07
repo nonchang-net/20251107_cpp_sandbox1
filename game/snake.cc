@@ -157,6 +157,20 @@ SnakeGame::SnakeGame(SDL_Renderer* renderer) : renderer(renderer) {
   last_step = SDL_GetTicks();
 }
 
+SDL_AppResult SnakeGame::handleSdlEvent(SDL_Event* event) {
+  //   std::cout << "TestImpl2::handleSdlEvent() called!" << std::endl;
+  switch (event->type) {
+    case SDL_EVENT_QUIT:
+      return SDL_APP_SUCCESS;
+    case SDL_EVENT_KEY_DOWN:
+      return handleKeyEvent(event->key.scancode);
+    default:
+      break;
+  }
+  return SDL_APP_CONTINUE;
+  return SDL_APP_CONTINUE;
+}
+
 SDL_AppResult SnakeGame::handleKeyEvent(SDL_Scancode key_code) {
   // std::cout << key_code << std::endl;
   switch (key_code) {
@@ -185,13 +199,14 @@ SDL_AppResult SnakeGame::handleKeyEvent(SDL_Scancode key_code) {
       // 参考URL: https://wiki.libsdl.org/SDL3/SDL_Event
       // note: SDL_RegisterEventsで未使用番号を取得した方が良いっぽい雰囲気
       // see also: https://wiki.libsdl.org/SDL3/SDL_RegisterEvents
-      SDL_Event user_event;
-      SDL_zero(user_event);
-      user_event.type = SDL_EVENT_USER;
-      user_event.user.code = 12345;
-      user_event.user.data1 = NULL;
-      user_event.user.data2 = NULL;
-      SDL_PushEvent(&user_event);
+
+      // SDL_Event user_event;
+      // SDL_zero(user_event);
+      // user_event.type = SDL_EVENT_USER;
+      // user_event.user.code = 12345;
+      // user_event.user.data1 = NULL;
+      // user_event.user.data2 = NULL;
+      // SDL_PushEvent(&user_event);
 
       break;
     default:
@@ -200,30 +215,30 @@ SDL_AppResult SnakeGame::handleKeyEvent(SDL_Scancode key_code) {
   return SDL_APP_CONTINUE;
 }
 
-SDL_AppResult SnakeGame::handleHatEvent(Uint8 hat) {
-  switch (hat) {
-    case SDL_HAT_RIGHT:
-      snake_redir(SNAKE_DIR_RIGHT);
-      break;
-    case SDL_HAT_UP:
-      snake_redir(SNAKE_DIR_UP);
-      break;
-    case SDL_HAT_LEFT:
-      snake_redir(SNAKE_DIR_LEFT);
-      break;
-    case SDL_HAT_DOWN:
-      snake_redir(SNAKE_DIR_DOWN);
-      break;
-    default:
-      break;
-  }
-  return SDL_APP_CONTINUE;
-}
+// SDL_AppResult SnakeGame::handleHatEvent(Uint8 hat) {
+//   switch (hat) {
+//     case SDL_HAT_RIGHT:
+//       snake_redir(SNAKE_DIR_RIGHT);
+//       break;
+//     case SDL_HAT_UP:
+//       snake_redir(SNAKE_DIR_UP);
+//       break;
+//     case SDL_HAT_LEFT:
+//       snake_redir(SNAKE_DIR_LEFT);
+//       break;
+//     case SDL_HAT_DOWN:
+//       snake_redir(SNAKE_DIR_DOWN);
+//       break;
+//     default:
+//       break;
+//   }
+//   return SDL_APP_CONTINUE;
+// }
 
-SDL_AppResult SnakeGame::handleUserEvent(SDL_Event* event) {
-  std::cout << "User Event Handled! [" << event->user.code << "]" << std::endl;
-  return SDL_APP_CONTINUE;
-}
+// SDL_AppResult SnakeGame::handleUserEvent(SDL_Event* event) {
+//   std::cout << "User Event Handled! [" << event->user.code << "]" <<
+//   std::endl; return SDL_APP_CONTINUE;
+// }
 
 SDL_AppResult SnakeGame::update() {
   const Uint64 now = SDL_GetTicks();

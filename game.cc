@@ -4,6 +4,8 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 
+#include "game/snake.h"
+#include "game/test_impl_2.h"
 #include "game_constant.h"
 #include "game_manager/game_manager.h"
 
@@ -40,6 +42,8 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
 
   // ゲーム実装初期化
   MyGame::GameImpl* gameImpl = new MyGame::TestImpl2(renderer);
+  // 差し替えるテスト
+  // gameImpl = new MyGame::SnakeGame::SnakeGame(renderer);
   MyGame::GameManager* gameManager = new MyGame::GameManager(gameImpl);
 
   *appstate = as;

@@ -5,11 +5,6 @@
 #include <iostream>
 #include <string>
 
-// #include "../game/snake.h"
-// #include "../game/test_impl_1.h"
-#include "../game/test_impl_2.h"
-#include "../game_constant.h"
-#include "draw_helper.h"
 #include "game_impl.h"
 
 namespace MyGame {
