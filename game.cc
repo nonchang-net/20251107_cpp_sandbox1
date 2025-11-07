@@ -27,6 +27,8 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event) {
       return gameManager.handleHatEvent(event->jhat.value);
     case SDL_EVENT_KEY_DOWN:
       return gameManager.handleKeyEvent(event->key.scancode);
+    case SDL_EVENT_USER:
+      return gameManager.handleUserEvent(event);
     default:
       break;
   }

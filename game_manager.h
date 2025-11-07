@@ -35,6 +35,7 @@ class GameManager {
   const void removeJoystick(SDL_Event* event);
   const SDL_AppResult handleHatEvent(Uint8);
   const SDL_AppResult handleKeyEvent(SDL_Scancode);
+  const SDL_AppResult handleUserEvent(SDL_Event* event);
 };
 
 #pragma region HANDLER
@@ -59,6 +60,9 @@ const SDL_AppResult GameManager::handleHatEvent(Uint8 jhatValue) {
 }
 const SDL_AppResult GameManager::handleKeyEvent(SDL_Scancode scancode) {
   return snakeGame->handleKeyEvent(scancode);
+}
+const SDL_AppResult GameManager::handleUserEvent(SDL_Event* event) {
+  return snakeGame->handleUserEvent(event);
 }
 
 #pragma endregion HANDLER

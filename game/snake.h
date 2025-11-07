@@ -228,6 +228,19 @@ class SnakeGame {
         break;
       case SDL_SCANCODE_DOWN:
         snake_redir(SNAKE_DIR_DOWN);
+
+        // カスタムユーザーイベント発火テスト
+        // 参考URL: https://wiki.libsdl.org/SDL3/SDL_Event
+        // note: SDL_RegisterEventsで未使用番号を取得した方が良いっぽい雰囲気
+        // see also: https://wiki.libsdl.org/SDL3/SDL_RegisterEvents
+        SDL_Event user_event;
+        SDL_zero(user_event);
+        user_event.type = SDL_EVENT_USER;
+        user_event.user.code = 12345;
+        user_event.user.data1 = NULL;
+        user_event.user.data2 = NULL;
+        SDL_PushEvent(&user_event);
+
         break;
       default:
         break;
@@ -252,6 +265,12 @@ class SnakeGame {
       default:
         break;
     }
+    return SDL_APP_CONTINUE;
+  }
+
+  SDL_AppResult handleUserEvent(SDL_Event* event) {
+    std::cout << "User Event Handled! [" << event->user.code << "]"
+              << std::endl;
     return SDL_APP_CONTINUE;
   }
 
@@ -288,6 +307,14 @@ class SnakeGame {
     SDL_SetRenderDrawColor(renderer, 255, 255, 0, SDL_ALPHA_OPAQUE); /*head*/
     set_rect_xy_(&r, snake_ctx.head_xpos, snake_ctx.head_ypos);
     SDL_RenderFillRect(renderer, &r);
+
+    SDL_SetRenderScale(renderer, 2.0f, 2.0f);
+    SDL_RenderDebugText(renderer, 0, 0, "hello world");
+
+    SDL_RenderDebugTextFormat(renderer, 0, 8, "(time: %" SDL_PRIu64 " sec.)",
+                              SDL_GetTicks() / 1000);
+    SDL_SetRenderScale(renderer, 1.0f, 1.0f);
+
     SDL_RenderPresent(renderer);
     return SDL_APP_CONTINUE;
   }
