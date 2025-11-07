@@ -15,7 +15,7 @@ add_library(game_manager game_manager/game_manager.cc game_manager/draw_helper.c
 target_link_libraries(game_manager PRIVATE SDL3::SDL3)
 
 # game
-add_library(games game/snake.cc)
+add_library(games game/snake.cc game/test_impl_2.cc)
 target_link_libraries(games PRIVATE SDL3::SDL3)
 
 # main

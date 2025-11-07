@@ -7,10 +7,10 @@
 #include "game_constant.h"
 #include "game_manager/game_manager.h"
 
-typedef struct {
-  MyGame::GameManager* gameManager = NULL;
-  MyGame::GameImpl* gameImpl = NULL;
-} AppState;
+struct AppState {
+  MyGame::GameManager* gameManager = nullptr;
+  MyGame::GameImpl* gameImpl = nullptr;
+};
 
 SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
   AppState* as = (AppState*)SDL_calloc(1, sizeof(AppState));
@@ -49,34 +49,25 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
 }
 
 SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event) {
+  switch (event->type) {
+    case SDL_EVENT_QUIT:
+      return SDL_APP_SUCCESS;
+    default:
+      break;
+  }
+  // return SDL_APP_CONTINUE;
+
   AppState* as = (AppState*)appstate;
+  // note: implに直でhandleさせるのは違うかな、を検討中
   // return as->gameImpl->handleSdlEvent(event);
   return as->gameManager->handleSdlEvent(event);
-  // switch (event->type) {
-  //   case SDL_EVENT_QUIT:
-  //     return SDL_APP_SUCCESS;
-  //   case SDL_EVENT_JOYSTICK_ADDED:
-  //     as->gameManager.addJoystick(event);
-  //     break;
-  //   case SDL_EVENT_JOYSTICK_REMOVED:
-  //     as->gameManager.removeJoystick(event);
-  //     break;
-  //   case SDL_EVENT_JOYSTICK_HAT_MOTION:
-  //     return as->gameManager.handleHatEvent(event->jhat.value);
-  //   case SDL_EVENT_KEY_DOWN:
-  //     return as->gameManager.handleKeyEvent(event->key.scancode);
-  //   case SDL_EVENT_USER:
-  //     return as->gameManager.handleUserEvent(event);
-  //   default:
-  //     break;
-  // }
-  // return SDL_APP_CONTINUE;
 }
 
 SDL_AppResult SDL_AppIterate(void* appstate) {
   AppState* as = (AppState*)appstate;
-  return as->gameManager->update();
+  // note: implに直でhandleさせるのは違うかな、を検討中
   // return as->gameImpl->update();
+  return as->gameManager->update();
 }
 
 void SDL_AppQuit(void* appstate, SDL_AppResult result) {}
