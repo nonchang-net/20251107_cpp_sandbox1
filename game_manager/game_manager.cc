@@ -1,42 +1,13 @@
-#ifndef GAME_MANAGER_H__
-#define GAME_MANAGER_H__
-
-#include <SDL3/SDL.h>
-
-#include <iostream>
-#include <string>
-
-#include "draw_helper.h"
-#include "game/snake.h"
-#include "game/test_impl_1.h"
-#include "game_constant.h"
+#include "game_manager.h"
 
 namespace MyGame {
 
-class GameManager {
- private:
-  SDL_Window* window = NULL;
-  SDL_Renderer* renderer = NULL;
-  SDL_Joystick* joystick = NULL;
-  DrawHelper* painter = NULL;
-  TestImpl1::TestImpl1* impl1 = NULL;
-  SnakeGame::SnakeGame* snakeGame = NULL;
-
- public:
-  ~GameManager() {
-    if (joystick) {
-      SDL_CloseJoystick(joystick);
-    }
-    // std::cout << "game manager deconstructed." << std::endl;
+GameManager::~GameManager() {
+  if (joystick) {
+    SDL_CloseJoystick(joystick);
   }
-  const SDL_AppResult init();
-  const SDL_AppResult update();
-  const void addJoystick(SDL_Event* event);
-  const void removeJoystick(SDL_Event* event);
-  const SDL_AppResult handleHatEvent(Uint8);
-  const SDL_AppResult handleKeyEvent(SDL_Scancode);
-  const SDL_AppResult handleUserEvent(SDL_Event* event);
-};
+  // std::cout << "game manager deconstructed." << std::endl;
+}
 
 #pragma region HANDLER
 
@@ -107,7 +78,4 @@ const SDL_AppResult GameManager::update() {
 }
 
 #pragma endregion UPDATE
-
 }  // namespace MyGame
-
-#endif

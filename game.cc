@@ -4,7 +4,7 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 
-#include "game_manager.h"
+#include "game_manager/game_manager.h"
 
 typedef struct {
   MyGame::GameManager gameManager;

@@ -1,5 +1,4 @@
-#ifndef GAME_CONSTANT_H__
-#define GAME_CONSTANT_H__
+#pragma once
 
 namespace MyGame {
 
@@ -11,5 +10,3 @@ constexpr int CANVAS_WIDTH = 640;
 constexpr int CANVAS_HEIGHT = 480;
 
 }  // namespace MyGame
-
-#endif

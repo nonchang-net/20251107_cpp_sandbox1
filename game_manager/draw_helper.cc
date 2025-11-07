@@ -1,22 +1,7 @@
-#ifndef DRAW_HELPER_H__
-#define DRAW_HELPER_H__
 
-#include <SDL3/SDL.h>
+#include "draw_helper.h"
 
 namespace MyGame {
-
-class DrawHelper {
-  SDL_Renderer* renderer = NULL;
-
- public:
-  DrawHelper(SDL_Renderer* renderer) : renderer(renderer) {}
-  DrawHelper* SetColor(Uint8, Uint8, Uint8, Uint8);
-  DrawHelper* SetColor(Uint8, Uint8, Uint8);
-  DrawHelper* Clear(Uint8, Uint8, Uint8);
-  DrawHelper* Rect(float, float, float, float);
-  // DrawHelper* Points(const SDL_FPoint *points);
-  DrawHelper* Line(float, float, float, float);
-};
 
 DrawHelper* DrawHelper::SetColor(Uint8 r, Uint8 g, Uint8 b, Uint8 a) {
   SDL_SetRenderDrawColor(renderer, r, g, b, a);
@@ -47,7 +32,4 @@ DrawHelper* DrawHelper::Line(float x, float y, float w, float h) {
   SDL_RenderLine(renderer, x, y, w, h);
   return this;
 }
-
 }  // namespace MyGame
-
-#endif
