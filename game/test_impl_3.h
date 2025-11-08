@@ -5,8 +5,7 @@
 #include <cmath>
 #include <memory>
 
-#include "../game_manager/entities/rect_entity.h"
-#include "../game_manager/entities/rotate_rect_entity.h"
+#include "../game_constant.h"
 #include "../game_manager/entities/text_entity.h"
 #include "../game_manager/entity_manager.h"
 #include "../game_manager/game_impl.h"
@@ -30,76 +29,91 @@ inline size_t toIndex(TestImpl3StateFlag flag) {
 }
 
 /**
- * @brief 点滅機能付き矩形エンティティ（デモ用）
+ * @brief 画面端で跳ね返るコンポーネント
  *
- * 汎用的なRectEntityを継承して点滅機能を追加
+ * 画面端に達したら速度を反転させます。
+ * Locator、VelocityMove、RectRendererコンポーネントが必要です。
  */
-class BlinkingRectEntity : public Entities::RectEntity {
+class BounceOnEdge : public Component {
  public:
-  BlinkingRectEntity(
-      int layer, float x, float y, float w, float h, SDL_Color color)
-      : RectEntity(layer, x, y, w, h, color), blink_timer_(0) {
-    // デフォルトで表示状態
-    setStateFlag(toIndex(TestImpl3StateFlag::Visible), 1);
-  }
+  void update(Entity* entity, Uint64 delta_time) override {
+    auto* locator = entity->getComponent<Locator>();
+    auto* velocity = entity->getComponent<VelocityMove>();
+    auto* renderer = entity->getComponent<RectRenderer>();
 
-  void update(Uint64 delta_time) override {
-    // 基底クラスの更新（移動処理）
-    RectEntity::update(delta_time);
+    if (!locator || !velocity || !renderer) return;
 
-    // 画面端で跳ね返り
-    auto [x, y] = getPosition();
-    auto [w, h] = getSize();
-    auto [vx, vy] = getVelocity();
+    auto [x, y] = locator->getPosition();
+    auto [w, h] = renderer->getSize();
+    auto [vx, vy] = velocity->getVelocity();
 
+    bool changed = false;
     if (x < 0 || x + w > 640) {
-      setVelocity(-vx, vy);
+      vx = -vx;
+      changed = true;
     }
     if (y < 0 || y + h > 480) {
-      setVelocity(vx, -vy);
+      vy = -vy;
+      changed = true;
     }
 
-    // 点滅処理
-    if (getStateFlag(toIndex(TestImpl3StateFlag::Blinking))) {
-      blink_timer_ += delta_time;
-      if (blink_timer_ > 500) {  // 500ms周期で点滅
-        setStateFlag(
-            toIndex(TestImpl3StateFlag::Visible),
-            !getStateFlag(toIndex(TestImpl3StateFlag::Visible)));
-        blink_timer_ = 0;
+    if (changed) {
+      velocity->setVelocity(vx, vy);
+    }
+  }
+};
+
+/**
+ * @brief 点滅コンポーネント
+ *
+ * 周期的に表示フラグを切り替えます。
+ */
+class Blink : public Component {
+ public:
+  explicit Blink(Uint64 interval_ms = 500)
+      : interval_(interval_ms), timer_(0) {}
+
+  void update(Entity* entity, Uint64 delta_time) override {
+    if (entity->getStateFlag(toIndex(TestImpl3StateFlag::Blinking))) {
+      timer_ += delta_time;
+      if (timer_ > interval_) {
+        size_t visible_idx = toIndex(TestImpl3StateFlag::Visible);
+        entity->setStateFlag(visible_idx, !entity->getStateFlag(visible_idx));
+        timer_ = 0;
       }
     }
   }
 
  private:
-  Uint64 blink_timer_;
+  Uint64 interval_;
+  Uint64 timer_;
 };
 
 /**
- * @brief ピボットポイントを動的に変更する矩形エンティティ（デモ用）
+ * @brief ピボットポイントを動的に変更するコンポーネント
  *
- * 汎用的なRotateRectEntityを継承してピボット変更機能を追加
+ * RotatedRectRendererコンポーネントのピボット位置を周期的に変更します。
  */
-class DynamicPivotRectEntity : public Entities::RotateRectEntity {
+class DynamicPivot : public Component {
  public:
-  DynamicPivotRectEntity(
-      int layer, float x, float y, float w, float h, SDL_Color color)
-      : RotateRectEntity(layer, x, y, w, h, color), pivot_timer_(0) {}
+  explicit DynamicPivot(Uint64 period_ms = 2000)
+      : period_(period_ms), timer_(0) {}
 
-  void update(Uint64 delta_time) override {
-    // 基底クラスの更新（回転・移動処理）
-    RotateRectEntity::update(delta_time);
+  void update(Entity* entity, Uint64 delta_time) override {
+    auto* renderer = entity->getComponent<RotatedRectRenderer>();
+    if (!renderer) return;
 
     // ピボットを周期的に変更（円運動させる）
-    pivot_timer_ += delta_time;
-    float t = pivot_timer_ / 2000.0f;  // 2秒周期
+    timer_ += delta_time;
+    float t = timer_ / static_cast<float>(period_);
     float pivot_x = 0.5f + 0.4f * std::cos(t);  // 0.1～0.9の範囲
     float pivot_y = 0.5f + 0.4f * std::sin(t);  // 0.1～0.9の範囲
-    setPivot(pivot_x, pivot_y);
+    renderer->setPivot(pivot_x, pivot_y);
   }
 
  private:
-  Uint64 pivot_timer_;
+  Uint64 period_;
+  Uint64 timer_;
 };
 
 /**
@@ -117,6 +131,8 @@ class TestImpl3 final : public GameImpl {
  public:
   TestImpl3(SDL_Renderer* renderer)
       : renderer_(renderer), last_time_(SDL_GetTicks()), spawn_timer_(0) {
+    // キャンバスサイズを設定（カメラのビューポートと中心位置を調整）
+    entity_manager_.setCanvasSize(CANVAS_WIDTH, CANVAS_HEIGHT);
     initializeEntities();
   }
 
@@ -183,78 +199,98 @@ class TestImpl3 final : public GameImpl {
  private:
   void initializeEntities() {
     // レイヤー0: 背景
-    auto bg = std::make_unique<Entities::RectEntity>(
-        0, 0, 0, 640, 480, SDL_Color{30, 30, 60, 255});
+    auto bg = createRectEntity(0, 0, 0, 640, 480, SDL_Color{30, 30, 60, 255});
     bg->setStateFlag(toIndex(TestImpl3StateFlag::Visible), 1);
     entity_manager_.addEntity(std::move(bg));
 
     // レイヤー1: 動く四角形（前景）
-    auto rect1 = std::make_unique<BlinkingRectEntity>(
-        1, 100, 100, 50, 50, SDL_Color{255, 100, 100, 255});
-    rect1->setVelocity(2.0f, 1.5f);
+    auto rect1 = createRectEntity(1, 100, 100, 50, 50, SDL_Color{255, 100, 100, 255});
+    rect1->setStateFlag(toIndex(TestImpl3StateFlag::Visible), 1);
+    if (auto* vel = rect1->getComponent<VelocityMove>()) {
+      vel->setVelocity(2.0f, 1.5f);
+    }
+    rect1->addComponent(std::make_unique<BounceOnEdge>());
     entity_manager_.addEntity(std::move(rect1));
 
-    auto rect2 = std::make_unique<BlinkingRectEntity>(
-        1, 300, 200, 60, 60, SDL_Color{100, 255, 100, 255});
-    rect2->setVelocity(-1.5f, 2.0f);
+    auto rect2 = createRectEntity(1, 300, 200, 60, 60, SDL_Color{100, 255, 100, 255});
+    rect2->setStateFlag(toIndex(TestImpl3StateFlag::Visible), 1);
+    if (auto* vel = rect2->getComponent<VelocityMove>()) {
+      vel->setVelocity(-1.5f, 2.0f);
+    }
+    rect2->addComponent(std::make_unique<BounceOnEdge>());
     entity_manager_.addEntity(std::move(rect2));
 
     // レイヤー2: 点滅する四角形
-    auto blink_rect = std::make_unique<BlinkingRectEntity>(
-        2, 250, 150, 80, 80, SDL_Color{100, 100, 255, 255});
+    auto blink_rect = createRectEntity(2, 250, 150, 80, 80, SDL_Color{100, 100, 255, 255});
+    blink_rect->setStateFlag(toIndex(TestImpl3StateFlag::Visible), 1);
     blink_rect->setStateFlag(toIndex(TestImpl3StateFlag::Blinking), 1);
+    blink_rect->addComponent(std::make_unique<Blink>(500));
     entity_manager_.addEntity(std::move(blink_rect));
 
     // レイヤー3: 回転する四角形（複数）
-    auto rotate_rect1 = std::make_unique<Entities::RotateRectEntity>(
+    auto rotate_rect1 = createRotateRectEntity(
         3, 320, 240, 100, 100, SDL_Color{255, 200, 0, 255});
-    rotate_rect1->setAngularVelocity(45.0f);  // 45度/秒で回転
     rotate_rect1->setStateFlag(toIndex(TestImpl3StateFlag::Visible), 1);
+    if (auto* ang_vel = rotate_rect1->getComponent<AngularVelocity>()) {
+      ang_vel->setAngularVelocity(45.0f);  // 45度/秒で回転
+    }
     entity_manager_.addEntity(std::move(rotate_rect1));
 
-    auto rotate_rect2 = std::make_unique<Entities::RotateRectEntity>(
+    auto rotate_rect2 = createRotateRectEntity(
         3, 500, 100, 60, 80, SDL_Color{0, 255, 200, 255}, 30.0f);
-    rotate_rect2->setAngularVelocity(-90.0f);  // -90度/秒で逆回転
-    rotate_rect2->setVelocity(1.0f, 0.5f);  // 移動しながら回転
     rotate_rect2->setStateFlag(toIndex(TestImpl3StateFlag::Visible), 1);
+    if (auto* ang_vel = rotate_rect2->getComponent<AngularVelocity>()) {
+      ang_vel->setAngularVelocity(-90.0f);  // -90度/秒で逆回転
+    }
+    if (auto* vel = rotate_rect2->getComponent<VelocityMove>()) {
+      vel->setVelocity(1.0f, 0.5f);  // 移動しながら回転
+    }
     entity_manager_.addEntity(std::move(rotate_rect2));
 
-    auto rotate_rect3 = std::make_unique<Entities::RotateRectEntity>(
+    auto rotate_rect3 = createRotateRectEntity(
         3, 150, 350, 70, 70, SDL_Color{255, 100, 200, 255}, 45.0f);
-    rotate_rect3->setAngularVelocity(120.0f);  // 高速回転
     rotate_rect3->setStateFlag(toIndex(TestImpl3StateFlag::Visible), 1);
+    if (auto* ang_vel = rotate_rect3->getComponent<AngularVelocity>()) {
+      ang_vel->setAngularVelocity(120.0f);  // 高速回転
+    }
     entity_manager_.addEntity(std::move(rotate_rect3));
 
     // レイヤー4: ピボットポイントのデモ
     // 左上を原点に回転（時計の針のような動き）
-    auto pivot_rect1 = std::make_unique<Entities::RotateRectEntity>(
-        4, 100, 100, 120, 10, SDL_Color{255, 255, 100, 255});
-    pivot_rect1->setPivot(0.0f, 0.0f);  // 左上を原点に
-    pivot_rect1->setAngularVelocity(30.0f);
+    auto pivot_rect1 = createRotateRectEntity(
+        4, 100, 100, 120, 10, SDL_Color{255, 255, 100, 255}, 0.0f, 0.0f, 0.0f);
     pivot_rect1->setStateFlag(toIndex(TestImpl3StateFlag::Visible), 1);
+    if (auto* ang_vel = pivot_rect1->getComponent<AngularVelocity>()) {
+      ang_vel->setAngularVelocity(30.0f);
+    }
     entity_manager_.addEntity(std::move(pivot_rect1));
 
     // 底辺中央を原点に回転（振り子のような動き）
-    auto pivot_rect2 = std::make_unique<Entities::RotateRectEntity>(
-        4, 400, 100, 15, 100, SDL_Color{100, 255, 255, 255}, 30.0f);
-    pivot_rect2->setPivot(0.5f, 1.0f);  // 底辺中央を原点に
-    pivot_rect2->setAngularVelocity(60.0f);
+    auto pivot_rect2 = createRotateRectEntity(
+        4, 400, 100, 15, 100, SDL_Color{100, 255, 255, 255}, 30.0f, 0.5f, 1.0f);
     pivot_rect2->setStateFlag(toIndex(TestImpl3StateFlag::Visible), 1);
+    if (auto* ang_vel = pivot_rect2->getComponent<AngularVelocity>()) {
+      ang_vel->setAngularVelocity(60.0f);
+    }
     entity_manager_.addEntity(std::move(pivot_rect2));
 
     // 右端中央を原点に回転（ドアが開くような動き）
-    auto pivot_rect3 = std::make_unique<Entities::RotateRectEntity>(
-        4, 550, 300, 80, 120, SDL_Color{255, 150, 150, 255});
-    pivot_rect3->setPivot(1.0f, 0.5f);  // 右端中央を原点に
-    pivot_rect3->setAngularVelocity(-25.0f);
+    auto pivot_rect3 = createRotateRectEntity(
+        4, 550, 300, 80, 120, SDL_Color{255, 150, 150, 255}, 0.0f, 1.0f, 0.5f);
     pivot_rect3->setStateFlag(toIndex(TestImpl3StateFlag::Visible), 1);
+    if (auto* ang_vel = pivot_rect3->getComponent<AngularVelocity>()) {
+      ang_vel->setAngularVelocity(-25.0f);
+    }
     entity_manager_.addEntity(std::move(pivot_rect3));
 
     // ピボットを動的に変更（複雑な回転運動）
-    auto dynamic_pivot = std::make_unique<DynamicPivotRectEntity>(
+    auto dynamic_pivot = createRotateRectEntity(
         4, 320, 400, 100, 80, SDL_Color{200, 150, 255, 255});
-    dynamic_pivot->setAngularVelocity(90.0f);
     dynamic_pivot->setStateFlag(toIndex(TestImpl3StateFlag::Visible), 1);
+    if (auto* ang_vel = dynamic_pivot->getComponent<AngularVelocity>()) {
+      ang_vel->setAngularVelocity(90.0f);
+    }
+    dynamic_pivot->addComponent(std::make_unique<DynamicPivot>(2000));
     entity_manager_.addEntity(std::move(dynamic_pivot));
 
     // レイヤー10: UI（最前面）
@@ -285,10 +321,15 @@ class TestImpl3 final : public GameImpl {
     Uint8 g = SDL_rand(256);
     Uint8 b = SDL_rand(256);
 
-    auto entity = std::make_unique<BlinkingRectEntity>(
-        1, x, y, 30, 30, SDL_Color{r, g, b, 255});
-    entity->setVelocity(
-        (SDL_randf() - 0.5f) * 4.0f, (SDL_randf() - 0.5f) * 4.0f);
+    auto entity = createRectEntity(1, x, y, 30, 30, SDL_Color{r, g, b, 255});
+    entity->setStateFlag(toIndex(TestImpl3StateFlag::Visible), 1);
+
+    if (auto* vel = entity->getComponent<VelocityMove>()) {
+      vel->setVelocity(
+          (SDL_randf() - 0.5f) * 4.0f, (SDL_randf() - 0.5f) * 4.0f);
+    }
+    entity->addComponent(std::make_unique<BounceOnEdge>());
+
     entity_manager_.addEntity(std::move(entity));
   }
 };
