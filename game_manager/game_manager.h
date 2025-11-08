@@ -18,7 +18,8 @@ namespace MyGame {
  * GameImplementation conceptを使用して、コンパイル時に型チェックを行います。
  * ジョイスティックの管理や、SDL_Eventの委譲を担当します。
  */
-template <GameImplementation GameType>
+template <typename GameType>
+  requires(GameImplementation<GameType>)
 class GameManager {
  private:
   std::unique_ptr<SDL_Joystick, decltype(&SDL_CloseJoystick)> joystick{
@@ -64,7 +65,8 @@ class GameManager {
    * @param event SDL_Event
    */
   void removeJoystick(SDL_Event* event) {
-    if (joystick && (SDL_GetJoystickID(joystick.get()) == event->jdevice.which)) {
+    if (joystick &&
+        (SDL_GetJoystickID(joystick.get()) == event->jdevice.which)) {
       joystick.reset();
     }
   }
