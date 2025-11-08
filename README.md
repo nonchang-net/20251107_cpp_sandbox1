@@ -15,4 +15,6 @@
 - build iteration
     - cmake --build build && ./build/main
 
-EOC
+---
+
+End of Contents

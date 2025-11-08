@@ -11,8 +11,12 @@
 #include "game_constant.h"
 #include "game_manager/game_manager.h"
 
+// 使用するゲーム実装の型を選択
+using CurrentGameType = MyGame::TestImpl2;
+// using CurrentGameType = MyGame::SnakeGame::SnakeGame;
+
 struct AppState {
-  std::unique_ptr<MyGame::GameManager> gameManager;
+  std::unique_ptr<MyGame::GameManager<CurrentGameType>> gameManager;
 };
 
 SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
@@ -42,13 +46,11 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
                                    SDL_LOGICAL_PRESENTATION_LETTERBOX);
 
   // ゲーム実装初期化
-  auto gameImpl = std::make_unique<MyGame::TestImpl2>(renderer);
-  // 差し替えるテスト
-  // auto gameImpl = std::make_unique<MyGame::SnakeGame::SnakeGame>(renderer);
+  auto gameImpl = std::make_unique<CurrentGameType>(renderer);
 
   // placement newでAppStateをSDL_callocで確保済みの領域に構築
-  as = new (as)
-      AppState{std::make_unique<MyGame::GameManager>(std::move(gameImpl))};
+  as = new (as) AppState{
+      std::make_unique<MyGame::GameManager<CurrentGameType>>(std::move(gameImpl))};
 
   *appstate = as;
   return SDL_APP_CONTINUE;

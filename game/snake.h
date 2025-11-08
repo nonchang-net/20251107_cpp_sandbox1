@@ -56,7 +56,13 @@ typedef struct {
 
 #pragma region SnakeGame
 
-class SnakeGame : public GameImpl {
+/**
+ * @brief スネークゲームの実装
+ *
+ * 古典的なスネークゲームです。
+ * 矢印キーで方向を変更し、餌を食べて成長します。
+ */
+class SnakeGame final : public GameImpl {
  private:
   SnakeContext snake_ctx;
   Uint64 last_step;
@@ -74,12 +80,14 @@ class SnakeGame : public GameImpl {
  public:
   SnakeGame(SDL_Renderer* renderer);
   SDL_AppResult handleKeyEvent(SDL_Scancode key_code);
-  // SDL_AppResult handleHatEvent(Uint8 hat);
-  // SDL_AppResult handleUserEvent(SDL_Event* event);
-  SDL_AppResult handleSdlEvent(SDL_Event*);
-  SDL_AppResult update();
+  SDL_AppResult handleSdlEvent(SDL_Event*) override;
+  SDL_AppResult update() override;
 };
 
-#pragma endrigon SnakeGame
+#pragma endregion SnakeGame
+
+// クラス定義完了後にGameImplementation conceptを満たすことを確認
+static_assert(GameImplementation<SnakeGame>,
+              "SnakeGame must satisfy GameImplementation concept");
 
 }  // namespace MyGame::SnakeGame
