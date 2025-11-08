@@ -22,7 +22,6 @@ target_link_libraries(game_manager PRIVATE SDL3::SDL3)
 set(GAME_SOURCES
     game/snake.cc
     game/test_impl_2.cc
-    game/test_impl_3.cc
 )
 add_library(games ${GAME_SOURCES})
 target_link_libraries(games PRIVATE SDL3::SDL3)

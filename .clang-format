@@ -3,3 +3,6 @@ BasedOnStyle: Google
 Language: Cpp
 IndentWidth: 2
 NamespaceIndentation: None
+; // SDL絡みのシンボルが長いせいで、めっちゃ画面右側で折り返しまくるので縦揃えをやめたいのだけど、BasedOnStyle: Googleを指定するとダメそう……？ 以下はclaudeに書かせてみた修正 → 反応せず
+; AlignAfterOpenBracket: AlwaysBreak
+; ContinuationIndentWidth: 4

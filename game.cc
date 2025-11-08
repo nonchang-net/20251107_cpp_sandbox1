@@ -8,11 +8,13 @@
 
 #include "game/snake.h"
 #include "game/test_impl_2.h"
+#include "game/test_impl_3.h"
 #include "game_constant.h"
 #include "game_manager/game_manager.h"
 
 // 使用するゲーム実装の型を選択
-using CurrentGameType = MyGame::TestImpl2;
+// using CurrentGameType = MyGame::TestImpl2;
+using CurrentGameType = MyGame::TestImpl3;
 // using CurrentGameType = MyGame::SnakeGame::SnakeGame;
 
 struct AppState {
@@ -35,22 +37,27 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
 
   SDL_Window* window = NULL;
   SDL_Renderer* renderer = NULL;
-  if (!SDL_CreateWindowAndRenderer(MyGame::APP_TITLE, MyGame::CANVAS_WIDTH,
-                                   MyGame::CANVAS_HEIGHT, SDL_WINDOW_RESIZABLE,
-                                   &window, &renderer)) {
+  if (!SDL_CreateWindowAndRenderer(
+      MyGame::APP_TITLE, MyGame::CANVAS_WIDTH,
+      MyGame::CANVAS_HEIGHT,
+      SDL_WINDOW_RESIZABLE,
+      &window, &renderer)
+  ) {
     SDL_Log("Couldn't create window/renderer: %s", SDL_GetError());
     return SDL_APP_FAILURE;
   }
-  SDL_SetRenderLogicalPresentation(renderer, MyGame::CANVAS_WIDTH,
-                                   MyGame::CANVAS_HEIGHT,
-                                   SDL_LOGICAL_PRESENTATION_LETTERBOX);
+  SDL_SetRenderLogicalPresentation(
+      renderer, MyGame::CANVAS_WIDTH,
+      MyGame::CANVAS_HEIGHT,
+      SDL_LOGICAL_PRESENTATION_LETTERBOX
+  );
 
   // ゲーム実装初期化
   auto gameImpl = std::make_unique<CurrentGameType>(renderer);
 
   // placement newでAppStateをSDL_callocで確保済みの領域に構築
-  as = new (as) AppState{
-      std::make_unique<MyGame::GameManager<CurrentGameType>>(std::move(gameImpl))};
+  as = new (as) AppState{std::make_unique<MyGame::GameManager<CurrentGameType>>(
+      std::move(gameImpl))};
 
   *appstate = as;
   return SDL_APP_CONTINUE;
@@ -63,18 +70,12 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event) {
     default:
       break;
   }
-  // return SDL_APP_CONTINUE;
-
   AppState* as = (AppState*)appstate;
-  // note: implに直でhandleさせるのは違うかな、を検討中
-  // return as->gameImpl->handleSdlEvent(event);
   return as->gameManager->handleSdlEvent(event);
 }
 
 SDL_AppResult SDL_AppIterate(void* appstate) {
   AppState* as = (AppState*)appstate;
-  // note: implに直でhandleさせるのは違うかな、を検討中
-  // return as->gameImpl->update();
   return as->gameManager->update();
 }
 
