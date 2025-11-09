@@ -19,6 +19,7 @@ using CurrentGameType = MyGame::TestImpl3;
 
 struct AppState {
   std::unique_ptr<MyGame::GameManager<CurrentGameType>> gameManager;
+  Uint64 last_frame_time = 0;  // フレームレート制限用
 };
 
 SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
@@ -46,6 +47,14 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
     SDL_Log("Couldn't create window/renderer: %s", SDL_GetError());
     return SDL_APP_FAILURE;
   }
+
+  // VSync設定
+  if (MyGame::ENABLE_VSYNC) {
+    if (!SDL_SetRenderVSync(renderer, 1)) {
+      SDL_Log("Warning: Failed to enable VSync: %s", SDL_GetError());
+    }
+  }
+
   SDL_SetRenderLogicalPresentation(
       renderer, MyGame::CANVAS_WIDTH,
       MyGame::CANVAS_HEIGHT,
@@ -76,6 +85,21 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event) {
 
 SDL_AppResult SDL_AppIterate(void* appstate) {
   AppState* as = (AppState*)appstate;
+
+  // フレームレート制限（VSyncが効かない環境用）
+  if (!MyGame::ENABLE_VSYNC && MyGame::TARGET_FPS > 0) {
+    Uint64 current_time = SDL_GetTicks();
+    Uint64 target_frame_time = 1000 / MyGame::TARGET_FPS;  // ミリ秒
+
+    if (as->last_frame_time > 0) {
+      Uint64 elapsed = current_time - as->last_frame_time;
+      if (elapsed < target_frame_time) {
+        SDL_Delay(target_frame_time - elapsed);
+      }
+    }
+    as->last_frame_time = SDL_GetTicks();
+  }
+
   return as->gameManager->update();
 }
 

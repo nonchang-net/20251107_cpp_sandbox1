@@ -8,6 +8,7 @@
 #include "../game_constant.h"
 #include "../game_manager/entity_manager.h"
 #include "../game_manager/game_impl.h"
+#include "../game_manager/utilities/fps_counter.h"
 #include "../game_manager/utilities/texture_loader.h"
 namespace MyGame {
 
@@ -128,6 +129,7 @@ class TestImpl3 final : public GameImpl {
   Uint64 last_time_;
   Uint64 spawn_timer_;
   Entity* player_ = nullptr;  // プレイヤーエンティティへの参照
+  Utilities::FpsCounter fps_counter_;  // FPS計測
 
  public:
   TestImpl3(SDL_Renderer* renderer)
@@ -179,6 +181,9 @@ class TestImpl3 final : public GameImpl {
     Uint64 delta_time = current_time - last_time_;
     last_time_ = current_time;
 
+    // FPS計測
+    fps_counter_.update();
+
     // プレイヤー入力処理
     handlePlayerInput();
 
@@ -228,7 +233,7 @@ class TestImpl3 final : public GameImpl {
     const bool* keys = SDL_GetKeyboardState(nullptr);
 
     // 移動速度（ピクセル/秒）
-    const float speed = 1.0f;
+    const float speed = 3.0f;
 
     // 移動方向を計算
     float vx = 0.0f;
@@ -386,8 +391,9 @@ class TestImpl3 final : public GameImpl {
         10, 10, 30,
         [this]() {
           static char buffer[64];
-          SDL_snprintf(buffer, sizeof(buffer), "FPS: ~%.0f",
-                       1000.0f / SDL_max(1, SDL_GetTicks() - last_time_));
+          SDL_snprintf(buffer, sizeof(buffer), "FPS: %.1f (%.2fms)",
+                       fps_counter_.getFps(),
+                       fps_counter_.getAverageFrameTime());
           return std::string(buffer);
         },
         SDL_Color{255, 255, 255, 255}, &top_left);

@@ -10,4 +10,8 @@ constexpr long GAME_MANAGER_VERSION = 202511061700;
 constexpr int CANVAS_WIDTH = 640;
 constexpr int CANVAS_HEIGHT = 480;
 
+// フレームレート設定
+constexpr int TARGET_FPS = 60;  // 目標フレームレート（30, 60など）
+constexpr bool ENABLE_VSYNC = true;  // VSync有効化（true推奨）
+
 }  // namespace MyGame
