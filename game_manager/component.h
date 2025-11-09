@@ -492,4 +492,109 @@ class TextRenderer : public Component {
   std::function<std::string()> text_provider_; // 動的テキスト生成関数
 };
 
+/**
+ * @brief スプライトシートから特定のタイルを描画するコンポーネント
+ *
+ * テクスチャをグリッド状のタイルに分割し、指定した座標のタイルを描画します。
+ * Entityのワールド座標・スケールを考慮して描画されます。
+ */
+class SpriteRenderer : public Component {
+ public:
+  /**
+   * @brief コンストラクタ
+   * @param texture スプライトシートのテクスチャ
+   * @param tile_size タイル1つのサイズ（ピクセル）
+   * @param tile_x 描画するタイルのX座標（グリッド座標）
+   * @param tile_y 描画するタイルのY座標（グリッド座標）
+   */
+  SpriteRenderer(SDL_Texture* texture, int tile_size, int tile_x = 0,
+                 int tile_y = 0)
+      : texture_(texture), tile_size_(tile_size), tile_x_(tile_x),
+        tile_y_(tile_y) {}
+
+  void render(Entity* entity, SDL_Renderer* renderer) override;
+
+  /**
+   * @brief 描画するタイルを設定
+   * @param tile_x タイルのX座標（グリッド座標）
+   * @param tile_y タイルのY座標（グリッド座標）
+   */
+  void setTile(int tile_x, int tile_y) {
+    tile_x_ = tile_x;
+    tile_y_ = tile_y;
+  }
+
+  /**
+   * @brief 描画するタイルを取得
+   * @return {tile_x, tile_y}
+   */
+  std::pair<int, int> getTile() const { return {tile_x_, tile_y_}; }
+
+  /**
+   * @brief テクスチャを設定
+   * @param texture 新しいテクスチャ
+   */
+  void setTexture(SDL_Texture* texture) { texture_ = texture; }
+
+  /**
+   * @brief テクスチャを取得
+   * @return テクスチャ
+   */
+  SDL_Texture* getTexture() const { return texture_; }
+
+ private:
+  SDL_Texture* texture_;  // スプライトシートのテクスチャ
+  int tile_size_;         // タイル1つのサイズ
+  int tile_x_, tile_y_;   // 描画するタイルのグリッド座標
+};
+
+/**
+ * @brief スプライトアニメーションを管理するコンポーネント
+ *
+ * フレームリストを順に切り替えてアニメーションします。
+ * SpriteRendererコンポーネントが必要です。
+ */
+class SpriteAnimator : public Component {
+ public:
+  /**
+   * @brief コンストラクタ
+   * @param frames アニメーションフレームのリスト（タイルのグリッド座標）
+   * @param frame_duration 1フレームの表示時間（ミリ秒）
+   */
+  SpriteAnimator(const std::vector<std::pair<int, int>>& frames,
+                 Uint64 frame_duration = 500)
+      : frames_(frames), frame_duration_(frame_duration), current_frame_(0),
+        timer_(0) {}
+
+  void update(Entity* entity, Uint64 delta_time) override;
+
+  /**
+   * @brief フレームリストを設定
+   * @param frames 新しいフレームリスト
+   */
+  void setFrames(const std::vector<std::pair<int, int>>& frames) {
+    frames_ = frames;
+    current_frame_ = 0;
+    timer_ = 0;
+  }
+
+  /**
+   * @brief フレーム表示時間を設定
+   * @param duration 1フレームの表示時間（ミリ秒）
+   */
+  void setFrameDuration(Uint64 duration) { frame_duration_ = duration; }
+
+  /**
+   * @brief 現在のフレーム番号を取得
+   * @return フレーム番号
+   */
+  size_t getCurrentFrame() const { return current_frame_; }
+
+ private:
+  std::vector<std::pair<int, int>> frames_;  // フレームリスト（タイル座標）
+  Uint64 frame_duration_;                    // 1フレームの表示時間
+  size_t current_frame_;                     // 現在のフレーム番号
+  Uint64 timer_;                             // タイマー
+};
+
 }  // namespace MyGame

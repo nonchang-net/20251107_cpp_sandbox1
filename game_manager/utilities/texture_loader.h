@@ -27,6 +27,7 @@ struct SDLStringDeleter {
  *
  * 指定されたPNGファイルからSDL_Textureを作成します。
  * SDL_GetBasePath()を基準に相対パスで指定できます。
+ * ドット絵に適したニアレストネイバーフィルタリング（補間なし）が設定されます。
  *
  * @param renderer SDLレンダラー
  * @param filename 読み込むファイル名（SDL_GetBasePath()からの相対パス）
@@ -34,6 +35,8 @@ struct SDLStringDeleter {
  *
  * @note 戻り値のSDL_Texture*は呼び出し側が所有権を持ち、
  *       使用後にSDL_DestroyTexture()で解放する必要があります。
+ * @note テクスチャのスケールモードはSDL_SCALEMODE_NEARESTに設定されます。
+ *       これによりドット絵を拡大してもぼやけず、くっきり表示されます。
  *
  * 使用例:
  * @code
@@ -46,8 +49,12 @@ struct SDLStringDeleter {
  */
 inline std::tuple<SDL_Texture*, int, int> load_texture(
     SDL_Renderer* renderer, const char* filename) {
-  if (!renderer || !filename) {
-    SDL_Log("Invalid parameters: renderer or filename is null");
+  if (!renderer) {
+    SDL_Log("Invalid parameters: renderer is null");
+    return {nullptr, 0, 0};
+  }
+  if (!filename) {
+    SDL_Log("Invalid parameters: filename is null");
     return {nullptr, 0, 0};
   }
 
@@ -62,8 +69,7 @@ inline std::tuple<SDL_Texture*, int, int> load_texture(
   }
 
   // サーフェスを読み込み（自動管理）
-  std::unique_ptr<SDL_Surface, SDLSurfaceDeleter> surface(
-      SDL_LoadPNG(png_path.get()));
+  std::unique_ptr<SDL_Surface, SDLSurfaceDeleter> surface(SDL_LoadPNG(png_path.get()));
 
   if (!surface) {
     SDL_Log("Failed to load PNG '%s': %s", filename, SDL_GetError());
@@ -79,6 +85,13 @@ inline std::tuple<SDL_Texture*, int, int> load_texture(
   if (!texture) {
     SDL_Log("Failed to create texture from '%s': %s", filename, SDL_GetError());
     return {nullptr, 0, 0};
+  }
+
+  // ドット絵用にニアレストネイバーフィルタリングを設定（補間なし）
+  if (!SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_NEAREST)) {
+    SDL_Log("Warning: Failed to set texture scale mode for '%s': %s", filename,
+            SDL_GetError());
+    // エラーでもテクスチャは使用可能なので続行
   }
 
   // サーフェスは自動的に解放される

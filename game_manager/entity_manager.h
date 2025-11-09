@@ -917,6 +917,71 @@ inline void TextRenderer::render(Entity* entity, SDL_Renderer* renderer) {
   SDL_RenderDebugText(renderer, screen_x, screen_y, text_.c_str());
 }
 
+// =========================================================================
+// SpriteRenderer実装
+// =========================================================================
+
+inline void SpriteRenderer::render(Entity* entity, SDL_Renderer* renderer) {
+  if (!texture_) return;
+
+  // ワールド座標を取得
+  auto [world_x, world_y] = entity->getWorldPosition();
+  auto [scale_x, scale_y] = entity->getWorldScale();
+
+  // カメラを使用してワールド座標から画面座標に変換
+  float screen_x = world_x;
+  float screen_y = world_y;
+  if (auto* camera = entity->getRenderCamera()) {
+    auto [sx, sy] = camera->worldToScreen(world_x, world_y);
+    screen_x = sx;
+    screen_y = sy;
+  }
+
+  // スプライトシート上のソース矩形を計算
+  SDL_FRect src_rect;
+  src_rect.x = static_cast<float>(tile_x_ * tile_size_);
+  src_rect.y = static_cast<float>(tile_y_ * tile_size_);
+  src_rect.w = static_cast<float>(tile_size_);
+  src_rect.h = static_cast<float>(tile_size_);
+
+  // 描画先の矩形を計算（スケール適用）
+  SDL_FRect dst_rect;
+  dst_rect.x = screen_x;
+  dst_rect.y = screen_y;
+  dst_rect.w = tile_size_ * scale_x;
+  dst_rect.h = tile_size_ * scale_y;
+
+  // テクスチャを描画
+  SDL_RenderTexture(renderer, texture_, &src_rect, &dst_rect);
+}
+
+// =========================================================================
+// SpriteAnimator実装
+// =========================================================================
+
+inline void SpriteAnimator::update(Entity* entity, Uint64 delta_time) {
+  if (frames_.empty()) return;
+
+  // SpriteRendererコンポーネントを取得
+  auto* sprite_renderer = entity->getComponent<SpriteRenderer>();
+  if (!sprite_renderer) return;
+
+  // タイマーを進める
+  timer_ += delta_time;
+
+  // フレーム切り替えが必要かチェック
+  if (timer_ >= frame_duration_) {
+    timer_ -= frame_duration_;
+
+    // 次のフレームへ
+    current_frame_ = (current_frame_ + 1) % frames_.size();
+
+    // SpriteRendererのタイルを更新
+    auto [tile_x, tile_y] = frames_[current_frame_];
+    sprite_renderer->setTile(tile_x, tile_y);
+  }
+}
+
 /**
  * @brief RectEntityをコンポーネントで代替するヘルパー関数
  *

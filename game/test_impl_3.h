@@ -127,13 +127,13 @@ class TestImpl3 final : public GameImpl {
   EntityManager entity_manager_;
   Uint64 last_time_;
   Uint64 spawn_timer_;
+  Entity* player_ = nullptr;  // プレイヤーエンティティへの参照
 
  public:
   TestImpl3(SDL_Renderer* renderer)
       : renderer_(renderer), last_time_(SDL_GetTicks()), spawn_timer_(0) {
     // キャンバスサイズを設定（カメラのビューポートと中心位置を調整）
     entity_manager_.setCanvasSize(CANVAS_WIDTH, CANVAS_HEIGHT);
-    initializeEntities();
 
     // 8x8ドット絵表現用のテクスチャ読み込む
     // note: width/heightは今は使わないかも
@@ -144,6 +144,9 @@ class TestImpl3 final : public GameImpl {
     } else {
       texture_ = texture;
     }
+
+    // テクスチャ読み込み後にエンティティを初期化
+    initializeEntities();
   }
 
   SDL_AppResult handleSdlEvent(SDL_Event* event) override {
@@ -160,6 +163,7 @@ class TestImpl3 final : public GameImpl {
           break;
         case SDL_SCANCODE_R:
           // Rキーでリセット
+          player_ = nullptr;
           entity_manager_.clear();
           initializeEntities();
           break;
@@ -174,6 +178,9 @@ class TestImpl3 final : public GameImpl {
     Uint64 current_time = SDL_GetTicks();
     Uint64 delta_time = current_time - last_time_;
     last_time_ = current_time;
+
+    // プレイヤー入力処理
+    handlePlayerInput();
 
     // エンティティの更新
     entity_manager_.updateAll(delta_time);
@@ -205,6 +212,45 @@ class TestImpl3 final : public GameImpl {
   }
 
  private:
+  /**
+   * @brief プレイヤーの入力を処理
+   */
+  void handlePlayerInput() {
+    if (!player_) {
+      SDL_Log("player not found.");
+      return;
+    }
+    // VelocityMoveコンポーネントを取得
+    auto* velocity = player_->getComponent<VelocityMove>();
+    if (!velocity) return;
+
+    // キーボード状態を取得
+    const bool* keys = SDL_GetKeyboardState(nullptr);
+
+    // 移動速度（ピクセル/秒）
+    const float speed = 1.0f;
+
+    // 移動方向を計算
+    float vx = 0.0f;
+    float vy = 0.0f;
+
+    if (keys[SDL_SCANCODE_UP] || keys[SDL_SCANCODE_W]) {
+      vy -= speed;
+    }
+    if (keys[SDL_SCANCODE_DOWN] || keys[SDL_SCANCODE_S]) {
+      vy += speed;
+    }
+    if (keys[SDL_SCANCODE_LEFT] || keys[SDL_SCANCODE_A]) {
+      vx -= speed;
+    }
+    if (keys[SDL_SCANCODE_RIGHT] || keys[SDL_SCANCODE_D]) {
+      vx += speed;
+    }
+
+    // 速度を設定
+    velocity->setVelocity(vx, vy);
+  }
+
   void initializeEntities() {
     // レイヤー0: 背景
     auto bg = createRectEntity(0, 0, 0, 640, 480, SDL_Color{30, 30, 60, 255});
@@ -303,6 +349,30 @@ class TestImpl3 final : public GameImpl {
     }
     dynamic_pivot->addComponent(std::make_unique<DynamicPivot>(2000));
     entity_manager_.addEntity(std::move(dynamic_pivot));
+
+    // レイヤー5: プレイヤーキャラクター
+    if (texture_) {
+      auto player = std::make_unique<Entity>(5);
+      player->setStateFlag(toIndex(TestImpl3StateFlag::Visible), 1);
+
+      // 座標・スケール
+      player->addComponent(std::make_unique<Locator>(320.0f, 240.0f));
+      player->addComponent(std::make_unique<Scaler>(4.0f, 4.0f));  // 8x8を32x32に拡大
+
+      // 移動（入力処理はhandlePlayerInput()で行う）
+      player->addComponent(std::make_unique<VelocityMove>(0.0f, 0.0f));
+
+      // スプライト描画（初期タイル: x=0, y=1）
+      player->addComponent(std::make_unique<SpriteRenderer>(texture_, 8, 0, 1));
+
+      // 歩行アニメーション（x:0,y:1 と x:1,y:1 を500msごとに切り替え）
+      std::vector<std::pair<int, int>> walk_frames = {{0, 1}, {1, 1}};
+      player->addComponent(std::make_unique<SpriteAnimator>(walk_frames, 500));
+
+      // プレイヤーへの参照を保存してからEntityManagerに追加
+      player_ = player.get();
+      entity_manager_.addEntity(std::move(player));
+    }
 
     // レイヤー10: UI（最前面）
     // 静的テキスト（ワールド座標、カメラの影響を受ける）
