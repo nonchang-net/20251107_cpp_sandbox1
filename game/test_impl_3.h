@@ -259,8 +259,9 @@ class TestImpl3 final : public GameImpl {
       SDL_Log("player not found.");
       return;
     }
-    // VelocityMoveコンポーネントを取得
+    // VelocityMoveコンポーネントとDirectionコンポーネントを取得
     auto* velocity = player_->getComponent<VelocityMove>();
+    auto* direction = player_->getComponent<DirectionComponent>();
     if (!velocity) return;
 
     // ポーズ中は入力を無効化
@@ -278,18 +279,27 @@ class TestImpl3 final : public GameImpl {
     // 移動方向を計算
     float vx = 0.0f;
     float vy = 0.0f;
+    bool is_moving = false;
 
     if (keys[SDL_SCANCODE_UP] || keys[SDL_SCANCODE_W]) {
       vy -= speed;
+      is_moving = true;
+      if (direction) direction->setDirection(Direction::Up);
     }
     if (keys[SDL_SCANCODE_DOWN] || keys[SDL_SCANCODE_S]) {
       vy += speed;
+      is_moving = true;
+      if (direction) direction->setDirection(Direction::Down);
     }
     if (keys[SDL_SCANCODE_LEFT] || keys[SDL_SCANCODE_A]) {
       vx -= speed;
+      is_moving = true;
+      if (direction) direction->setDirection(Direction::Left);
     }
     if (keys[SDL_SCANCODE_RIGHT] || keys[SDL_SCANCODE_D]) {
       vx += speed;
+      is_moving = true;
+      if (direction) direction->setDirection(Direction::Right);
     }
 
     // 速度を設定
@@ -407,12 +417,21 @@ class TestImpl3 final : public GameImpl {
       // 移動（入力処理はhandlePlayerInput()で行う）
       player->addComponent(std::make_unique<VelocityMove>(0.0f, 0.0f));
 
+      // 向き（初期は下向き）
+      player->addComponent(std::make_unique<DirectionComponent>(Direction::Down));
+
       // スプライト描画（初期タイル: x=0, y=1）
       player->addComponent(std::make_unique<SpriteRenderer>(texture_, 8, 0, 1));
 
-      // 歩行アニメーション（x:0,y:1 と x:1,y:1 を500msごとに切り替え）
-      std::vector<std::pair<int, int>> walk_frames = {{0, 1}, {1, 1}};
-      player->addComponent(std::make_unique<SpriteAnimator>(walk_frames, 500));
+      // 向きごとのスプライトアニメーション
+      std::vector<std::pair<int, int>> down_frames = {{0, 1}, {1, 1}};   // 下向き
+      std::vector<std::pair<int, int>> up_frames = {{2, 1}, {3, 1}};     // 上向き
+      std::vector<std::pair<int, int>> right_frames = {{4, 1}, {5, 1}};  // 右向き
+      // 左向きは空（右向きを左右反転）
+
+      player->addComponent(std::make_unique<SpriteAnimator>(down_frames, 500));
+      player->addComponent(std::make_unique<DirectionalSpriteAnimator>(
+          down_frames, up_frames, right_frames));
 
       // プレイヤーへの参照を保存してからEntityManagerに追加
       player_ = player.get();

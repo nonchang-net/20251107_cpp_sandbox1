@@ -493,10 +493,52 @@ class TextRenderer : public Component {
 };
 
 /**
+ * @brief 4方向の向きを表すenum
+ */
+enum class Direction {
+  Down = 0,   // 下向き
+  Up = 1,     // 上向き
+  Right = 2,  // 右向き
+  Left = 3    // 左向き
+};
+
+/**
+ * @brief エンティティの向き（方向）を保持するコンポーネント
+ *
+ * キャラクターの向きを管理します。
+ * 向きを持たないエンティティには追加不要です。
+ */
+class DirectionComponent : public Component {
+ public:
+  /**
+   * @brief コンストラクタ
+   * @param direction 初期の向き
+   */
+  explicit DirectionComponent(Direction direction = Direction::Down)
+      : direction_(direction) {}
+
+  /**
+   * @brief 向きを設定
+   * @param direction 新しい向き
+   */
+  void setDirection(Direction direction) { direction_ = direction; }
+
+  /**
+   * @brief 向きを取得
+   * @return 現在の向き
+   */
+  Direction getDirection() const { return direction_; }
+
+ private:
+  Direction direction_;
+};
+
+/**
  * @brief スプライトシートから特定のタイルを描画するコンポーネント
  *
  * テクスチャをグリッド状のタイルに分割し、指定した座標のタイルを描画します。
  * Entityのワールド座標・スケールを考慮して描画されます。
+ * 左右反転機能をサポートします。
  */
 class SpriteRenderer : public Component {
  public:
@@ -508,9 +550,9 @@ class SpriteRenderer : public Component {
    * @param tile_y 描画するタイルのY座標（グリッド座標）
    */
   SpriteRenderer(SDL_Texture* texture, int tile_size, int tile_x = 0,
-                 int tile_y = 0)
+                 int tile_y = 0, bool flip_horizontal = false)
       : texture_(texture), tile_size_(tile_size), tile_x_(tile_x),
-        tile_y_(tile_y) {}
+        tile_y_(tile_y), flip_horizontal_(flip_horizontal) {}
 
   void render(Entity* entity, SDL_Renderer* renderer) override;
 
@@ -542,10 +584,73 @@ class SpriteRenderer : public Component {
    */
   SDL_Texture* getTexture() const { return texture_; }
 
+  /**
+   * @brief 左右反転を設定
+   * @param flip 反転するかどうか
+   */
+  void setFlipHorizontal(bool flip) { flip_horizontal_ = flip; }
+
+  /**
+   * @brief 左右反転を取得
+   * @return 反転しているかどうか
+   */
+  bool isFlipHorizontal() const { return flip_horizontal_; }
+
  private:
-  SDL_Texture* texture_;  // スプライトシートのテクスチャ
-  int tile_size_;         // タイル1つのサイズ
-  int tile_x_, tile_y_;   // 描画するタイルのグリッド座標
+  SDL_Texture* texture_;     // スプライトシートのテクスチャ
+  int tile_size_;            // タイル1つのサイズ
+  int tile_x_, tile_y_;      // 描画するタイルのグリッド座標
+  bool flip_horizontal_;     // 左右反転フラグ
+};
+
+/**
+ * @brief 向きごとのスプライトフレームセットを管理するコンポーネント
+ *
+ * DirectionComponentの向きに応じて、SpriteAnimatorとSpriteRendererを自動更新します。
+ * DirectionComponent、SpriteAnimator、SpriteRendererコンポーネントが必要です。
+ */
+class DirectionalSpriteAnimator : public Component {
+ public:
+  /**
+   * @brief コンストラクタ
+   * @param down_frames 下向きのフレームリスト
+   * @param up_frames 上向きのフレームリスト
+   * @param right_frames 右向きのフレームリスト
+   * @param left_frames 左向きのフレームリスト（空の場合は右向きを左右反転）
+   */
+  DirectionalSpriteAnimator(
+      const std::vector<std::pair<int, int>>& down_frames,
+      const std::vector<std::pair<int, int>>& up_frames,
+      const std::vector<std::pair<int, int>>& right_frames,
+      const std::vector<std::pair<int, int>>& left_frames = {})
+      : down_frames_(down_frames), up_frames_(up_frames),
+        right_frames_(right_frames), left_frames_(left_frames),
+        current_direction_(Direction::Down) {}
+
+  void update(Entity* entity, Uint64 delta_time) override;
+
+  /**
+   * @brief 各向きのフレームリストを設定
+   */
+  void setDownFrames(const std::vector<std::pair<int, int>>& frames) {
+    down_frames_ = frames;
+  }
+  void setUpFrames(const std::vector<std::pair<int, int>>& frames) {
+    up_frames_ = frames;
+  }
+  void setRightFrames(const std::vector<std::pair<int, int>>& frames) {
+    right_frames_ = frames;
+  }
+  void setLeftFrames(const std::vector<std::pair<int, int>>& frames) {
+    left_frames_ = frames;
+  }
+
+ private:
+  std::vector<std::pair<int, int>> down_frames_;   // 下向きフレーム
+  std::vector<std::pair<int, int>> up_frames_;     // 上向きフレーム
+  std::vector<std::pair<int, int>> right_frames_;  // 右向きフレーム
+  std::vector<std::pair<int, int>> left_frames_;   // 左向きフレーム（空なら右向きを反転）
+  Direction current_direction_;  // 前回の向き（変化検出用）
 };
 
 /**
