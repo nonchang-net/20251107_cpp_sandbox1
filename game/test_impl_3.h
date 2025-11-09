@@ -6,10 +6,9 @@
 #include <memory>
 
 #include "../game_constant.h"
-#include "../game_manager/entities/text_entity.h"
 #include "../game_manager/entity_manager.h"
 #include "../game_manager/game_impl.h"
-
+#include "../game_manager/utilities/texture_loader.h"
 namespace MyGame {
 
 /**
@@ -124,6 +123,7 @@ class DynamicPivot : public Component {
 class TestImpl3 final : public GameImpl {
  private:
   SDL_Renderer* renderer_ = nullptr;
+  SDL_Texture* texture_ = nullptr;
   EntityManager entity_manager_;
   Uint64 last_time_;
   Uint64 spawn_timer_;
@@ -134,6 +134,16 @@ class TestImpl3 final : public GameImpl {
     // キャンバスサイズを設定（カメラのビューポートと中心位置を調整）
     entity_manager_.setCanvasSize(CANVAS_WIDTH, CANVAS_HEIGHT);
     initializeEntities();
+
+    // 8x8ドット絵表現用のテクスチャ読み込む
+    // note: width/heightは今は使わないかも
+    auto [texture, width, height] =
+        Utilities::load_texture(renderer, "resources/images/nonchang_20240917.png");
+    if (!texture) {
+      SDL_Log("テクスチャ読み込み失敗");
+    } else {
+      texture_ = texture;
+    }
   }
 
   SDL_AppResult handleSdlEvent(SDL_Event* event) override {
@@ -145,9 +155,8 @@ class TestImpl3 final : public GameImpl {
         case SDL_SCANCODE_C:
           // Cキーでクリーンアップ（削除マークされたエンティティを削除）
           entity_manager_.cleanup();
-          SDL_Log(
-              "Cleanup: %zu entities remaining",
-              entity_manager_.getEntityCount());
+          SDL_Log("Cleanup: %zu entities remaining",
+                  entity_manager_.getEntityCount());
           break;
         case SDL_SCANCODE_R:
           // Rキーでリセット
@@ -186,9 +195,8 @@ class TestImpl3 final : public GameImpl {
     // デバッグ情報
     SDL_SetRenderDrawColor(renderer_, 255, 255, 255, 255);
     char buffer[64];
-    SDL_snprintf(
-        buffer, sizeof(buffer), "Entities: %zu",
-        entity_manager_.getEntityCount());
+    SDL_snprintf(buffer, sizeof(buffer), "Entities: %zu",
+                 entity_manager_.getEntityCount());
     SDL_RenderDebugText(renderer_, 10, 10, buffer);
     SDL_RenderDebugText(renderer_, 10, 20, "R: Reset, C: Cleanup, Q: Quit");
 
@@ -204,7 +212,8 @@ class TestImpl3 final : public GameImpl {
     entity_manager_.addEntity(std::move(bg));
 
     // レイヤー1: 動く四角形（前景）
-    auto rect1 = createRectEntity(1, 100, 100, 50, 50, SDL_Color{255, 100, 100, 255});
+    auto rect1 =
+        createRectEntity(1, 100, 100, 50, 50, SDL_Color{255, 100, 100, 255});
     rect1->setStateFlag(toIndex(TestImpl3StateFlag::Visible), 1);
     if (auto* vel = rect1->getComponent<VelocityMove>()) {
       vel->setVelocity(2.0f, 1.5f);
@@ -212,7 +221,8 @@ class TestImpl3 final : public GameImpl {
     rect1->addComponent(std::make_unique<BounceOnEdge>());
     entity_manager_.addEntity(std::move(rect1));
 
-    auto rect2 = createRectEntity(1, 300, 200, 60, 60, SDL_Color{100, 255, 100, 255});
+    auto rect2 =
+        createRectEntity(1, 300, 200, 60, 60, SDL_Color{100, 255, 100, 255});
     rect2->setStateFlag(toIndex(TestImpl3StateFlag::Visible), 1);
     if (auto* vel = rect2->getComponent<VelocityMove>()) {
       vel->setVelocity(-1.5f, 2.0f);
@@ -221,15 +231,16 @@ class TestImpl3 final : public GameImpl {
     entity_manager_.addEntity(std::move(rect2));
 
     // レイヤー2: 点滅する四角形
-    auto blink_rect = createRectEntity(2, 250, 150, 80, 80, SDL_Color{100, 100, 255, 255});
+    auto blink_rect =
+        createRectEntity(2, 250, 150, 80, 80, SDL_Color{100, 100, 255, 255});
     blink_rect->setStateFlag(toIndex(TestImpl3StateFlag::Visible), 1);
     blink_rect->setStateFlag(toIndex(TestImpl3StateFlag::Blinking), 1);
     blink_rect->addComponent(std::make_unique<Blink>(500));
     entity_manager_.addEntity(std::move(blink_rect));
 
     // レイヤー3: 回転する四角形（複数）
-    auto rotate_rect1 = createRotateRectEntity(
-        3, 320, 240, 100, 100, SDL_Color{255, 200, 0, 255});
+    auto rotate_rect1 = createRotateRectEntity(3, 320, 240, 100, 100,
+                                               SDL_Color{255, 200, 0, 255});
     rotate_rect1->setStateFlag(toIndex(TestImpl3StateFlag::Visible), 1);
     if (auto* ang_vel = rotate_rect1->getComponent<AngularVelocity>()) {
       ang_vel->setAngularVelocity(45.0f);  // 45度/秒で回転
@@ -284,8 +295,8 @@ class TestImpl3 final : public GameImpl {
     entity_manager_.addEntity(std::move(pivot_rect3));
 
     // ピボットを動的に変更（複雑な回転運動）
-    auto dynamic_pivot = createRotateRectEntity(
-        4, 320, 400, 100, 80, SDL_Color{200, 150, 255, 255});
+    auto dynamic_pivot = createRotateRectEntity(4, 320, 400, 100, 80,
+                                                SDL_Color{200, 150, 255, 255});
     dynamic_pivot->setStateFlag(toIndex(TestImpl3StateFlag::Visible), 1);
     if (auto* ang_vel = dynamic_pivot->getComponent<AngularVelocity>()) {
       ang_vel->setAngularVelocity(90.0f);
@@ -294,22 +305,22 @@ class TestImpl3 final : public GameImpl {
     entity_manager_.addEntity(std::move(dynamic_pivot));
 
     // レイヤー10: UI（最前面）
-    // 静的テキスト
-    auto ui_text = std::make_unique<Entities::TextEntity>(
-        10, 200, 240, "Entity Demo");
+    // 静的テキスト（ワールド座標、カメラの影響を受ける）
+    auto ui_text = createTextEntity(10, 200, 240, "Entity Demo");
     ui_text->setStateFlag(toIndex(TestImpl3StateFlag::Visible), 1);
     entity_manager_.addEntity(std::move(ui_text));
 
-    // 動的テキスト（FPS表示のデモ）
-    auto fps_text = std::make_unique<Entities::TextEntity>(
+    // 動的テキスト（FPS表示、UI要素として左上にアンカー）
+    static const UIAnchor top_left = UIAnchor::TopLeft;
+    auto fps_text = createTextEntity(
         10, 10, 30,
         [this]() {
           static char buffer[64];
-          SDL_snprintf(
-              buffer, sizeof(buffer), "FPS: ~%.0f",
-              1000.0f / SDL_max(1, SDL_GetTicks() - last_time_));
+          SDL_snprintf(buffer, sizeof(buffer), "FPS: ~%.0f",
+                       1000.0f / SDL_max(1, SDL_GetTicks() - last_time_));
           return std::string(buffer);
-        });
+        },
+        SDL_Color{255, 255, 255, 255}, &top_left);
     fps_text->setStateFlag(toIndex(TestImpl3StateFlag::Visible), 1);
     entity_manager_.addEntity(std::move(fps_text));
   }
@@ -325,8 +336,8 @@ class TestImpl3 final : public GameImpl {
     entity->setStateFlag(toIndex(TestImpl3StateFlag::Visible), 1);
 
     if (auto* vel = entity->getComponent<VelocityMove>()) {
-      vel->setVelocity(
-          (SDL_randf() - 0.5f) * 4.0f, (SDL_randf() - 0.5f) * 4.0f);
+      vel->setVelocity((SDL_randf() - 0.5f) * 4.0f,
+                       (SDL_randf() - 0.5f) * 4.0f);
     }
     entity->addComponent(std::make_unique<BounceOnEdge>());
 
@@ -335,8 +346,7 @@ class TestImpl3 final : public GameImpl {
 };
 
 // クラス定義完了後にGameImplementation conceptを満たすことを確認
-static_assert(
-    GameImplementation<TestImpl3>,
-    "TestImpl3 must satisfy GameImplementation concept");
+static_assert(GameImplementation<TestImpl3>,
+              "TestImpl3 must satisfy GameImplementation concept");
 
 }  // namespace MyGame

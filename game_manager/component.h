@@ -359,4 +359,137 @@ class RotatedRectRenderer : public Component {
   float pivot_x_, pivot_y_;  // 回転の原点（0.0～1.0）
 };
 
+/**
+ * @brief UIアンカーの基準点
+ */
+enum class UIAnchor {
+  TopLeft,      // 左上
+  TopRight,     // 右上
+  BottomLeft,   // 左下
+  BottomRight,  // 右下
+  Center        // 中央
+};
+
+/**
+ * @brief UIアンカーコンポーネント
+ *
+ * UI要素を画面上の特定位置にアンカーします。
+ * このコンポーネントがある場合、Locatorの座標はアンカーからのオフセットとして扱われます。
+ * カメラの影響を受けず、常に画面座標で描画されます。
+ */
+class UIAnchorComponent : public Component {
+ public:
+  /**
+   * @brief コンストラクタ
+   * @param anchor アンカー位置
+   */
+  explicit UIAnchorComponent(UIAnchor anchor = UIAnchor::TopLeft)
+      : anchor_(anchor) {}
+
+  /**
+   * @brief アンカーを設定
+   * @param anchor アンカー位置
+   */
+  void setAnchor(UIAnchor anchor) { anchor_ = anchor; }
+
+  /**
+   * @brief アンカーを取得
+   * @return アンカー位置
+   */
+  UIAnchor getAnchor() const { return anchor_; }
+
+  /**
+   * @brief アンカー座標を計算
+   * @param viewport_width ビューポート幅
+   * @param viewport_height ビューポート高さ
+   * @return アンカーの画面座標 {x, y}
+   */
+  std::pair<float, float> calculateAnchorPosition(
+      float viewport_width, float viewport_height) const {
+    switch (anchor_) {
+      case UIAnchor::TopLeft:
+        return {0.0f, 0.0f};
+      case UIAnchor::TopRight:
+        return {viewport_width, 0.0f};
+      case UIAnchor::BottomLeft:
+        return {0.0f, viewport_height};
+      case UIAnchor::BottomRight:
+        return {viewport_width, viewport_height};
+      case UIAnchor::Center:
+        return {viewport_width / 2.0f, viewport_height / 2.0f};
+      default:
+        return {0.0f, 0.0f};
+    }
+  }
+
+ private:
+  UIAnchor anchor_;
+};
+
+/**
+ * @brief テキストを描画するコンポーネント
+ *
+ * 静的テキストと動的テキスト（関数）の両方をサポートします。
+ * UIAnchorComponentと組み合わせることで、UI要素として使用できます。
+ */
+class TextRenderer : public Component {
+ public:
+  /**
+   * @brief 静的テキスト用コンストラクタ
+   * @param text 表示するテキスト
+   * @param color 色
+   */
+  TextRenderer(const std::string& text, SDL_Color color = {255, 255, 255, 255})
+      : text_(text), color_(color), text_provider_(nullptr) {}
+
+  /**
+   * @brief 動的テキスト用コンストラクタ
+   * @param text_provider テキストを返す関数
+   * @param color 色
+   */
+  TextRenderer(std::function<std::string()> text_provider,
+               SDL_Color color = {255, 255, 255, 255})
+      : color_(color), text_provider_(text_provider) {}
+
+  void update(Entity* entity, Uint64 delta_time) override;
+  void render(Entity* entity, SDL_Renderer* renderer) override;
+
+  /**
+   * @brief テキストを設定（静的テキスト）
+   * @param text 新しいテキスト
+   */
+  void setText(const std::string& text) { text_ = text; }
+
+  /**
+   * @brief テキストを取得
+   * @return 現在のテキスト
+   */
+  const std::string& getText() const { return text_; }
+
+  /**
+   * @brief 色を設定
+   * @param color 色
+   */
+  void setColor(SDL_Color color) { color_ = color; }
+
+  /**
+   * @brief 色を取得
+   * @return 色
+   */
+  SDL_Color getColor() const { return color_; }
+
+  /**
+   * @brief テキストプロバイダーを設定（動的テキスト）
+   * @param provider テキストを返す関数
+   */
+  void setTextProvider(std::function<std::string()> provider) {
+    text_provider_ = provider;
+  }
+
+ private:
+  std::string text_;                           // テキスト内容
+  SDL_Color color_;                            // 色
+  std::function<std::string()> text_provider_; // 動的テキスト生成関数
+};
+
 }  // namespace MyGame

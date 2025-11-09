@@ -863,6 +863,60 @@ inline void RotatedRectRenderer::render(Entity* entity, SDL_Renderer* renderer) 
   SDL_RenderGeometry(renderer, nullptr, sdl_vertices, 4, indices, 6);
 }
 
+// TextRendererの実装
+inline void TextRenderer::update(Entity* entity, Uint64 delta_time) {
+  // 動的テキストの場合、毎フレーム更新
+  if (text_provider_) {
+    text_ = text_provider_();
+  }
+}
+
+inline void TextRenderer::render(Entity* entity, SDL_Renderer* renderer) {
+  float screen_x, screen_y;
+
+  // UIAnchorコンポーネントがあるかチェック
+  if (auto* ui_anchor = entity->getComponent<UIAnchorComponent>()) {
+    // UI要素として扱う：カメラの影響を受けず、画面座標で描画
+    auto* camera = entity->getRenderCamera();
+    float viewport_width = 640.0f;   // デフォルト値
+    float viewport_height = 480.0f;  // デフォルト値
+
+    // カメラからビューポートサイズを取得
+    if (camera) {
+      // Camera2Dからビューポートサイズを取得（将来的に実装）
+      // 現在はデフォルト値を使用
+    }
+
+    // アンカー座標を計算
+    auto [anchor_x, anchor_y] = ui_anchor->calculateAnchorPosition(
+        viewport_width, viewport_height);
+
+    // Locatorのオフセットを取得
+    auto [offset_x, offset_y] = entity->getLocalPosition();
+
+    // 画面座標 = アンカー座標 + オフセット
+    screen_x = anchor_x + offset_x;
+    screen_y = anchor_y + offset_y;
+  } else {
+    // ゲーム要素として扱う：ワールド座標 + カメラ変換
+    auto [world_x, world_y] = entity->getWorldPosition();
+
+    // カメラを使用してワールド座標から画面座標に変換
+    if (auto* camera = entity->getRenderCamera()) {
+      auto [sx, sy] = camera->worldToScreen(world_x, world_y);
+      screen_x = sx;
+      screen_y = sy;
+    } else {
+      screen_x = world_x;
+      screen_y = world_y;
+    }
+  }
+
+  // テキストを描画
+  SDL_SetRenderDrawColor(renderer, color_.r, color_.g, color_.b, color_.a);
+  SDL_RenderDebugText(renderer, screen_x, screen_y, text_.c_str());
+}
+
 /**
  * @brief RectEntityをコンポーネントで代替するヘルパー関数
  *
@@ -929,6 +983,74 @@ inline std::unique_ptr<Entity> createRotateRectEntity(
 
   // 回転矩形描画コンポーネント
   entity->addComponent(std::make_unique<RotatedRectRenderer>(w, h, color, pivot_x, pivot_y));
+
+  return entity;
+}
+
+/**
+ * @brief TextEntityをコンポーネントで代替するヘルパー関数（静的テキスト）
+ *
+ * Locator + TextRendererを持つEntityを作成します。
+ * UIAnchorを指定することで、UI要素として扱うことができます。
+ *
+ * @param layer レイヤー番号
+ * @param x X座標（UIAnchorがある場合はオフセット、ない場合はワールド座標）
+ * @param y Y座標（UIAnchorがある場合はオフセット、ない場合はワールド座標）
+ * @param text 表示するテキスト
+ * @param color 色
+ * @param anchor UIアンカー（nullptrの場合はゲーム要素として扱う）
+ * @return 作成されたEntity
+ */
+inline std::unique_ptr<Entity> createTextEntity(
+    int layer, float x, float y, const std::string& text,
+    SDL_Color color = {255, 255, 255, 255},
+    const UIAnchor* anchor = nullptr) {
+  auto entity = std::make_unique<Entity>(layer);
+
+  // 座標コンポーネント
+  entity->addComponent(std::make_unique<Locator>(x, y));
+
+  // テキスト描画コンポーネント
+  entity->addComponent(std::make_unique<TextRenderer>(text, color));
+
+  // UIアンカーが指定されている場合は追加
+  if (anchor) {
+    entity->addComponent(std::make_unique<UIAnchorComponent>(*anchor));
+  }
+
+  return entity;
+}
+
+/**
+ * @brief TextEntityをコンポーネントで代替するヘルパー関数（動的テキスト）
+ *
+ * Locator + TextRendererを持つEntityを作成します。
+ * テキストを返す関数を渡すことで、動的に更新されるテキストを表示できます。
+ *
+ * @param layer レイヤー番号
+ * @param x X座標（UIAnchorがある場合はオフセット、ない場合はワールド座標）
+ * @param y Y座標（UIAnchorがある場合はオフセット、ない場合はワールド座標）
+ * @param text_provider テキストを返す関数
+ * @param color 色
+ * @param anchor UIアンカー（nullptrの場合はゲーム要素として扱う）
+ * @return 作成されたEntity
+ */
+inline std::unique_ptr<Entity> createTextEntity(
+    int layer, float x, float y, std::function<std::string()> text_provider,
+    SDL_Color color = {255, 255, 255, 255},
+    const UIAnchor* anchor = nullptr) {
+  auto entity = std::make_unique<Entity>(layer);
+
+  // 座標コンポーネント
+  entity->addComponent(std::make_unique<Locator>(x, y));
+
+  // テキスト描画コンポーネント（動的）
+  entity->addComponent(std::make_unique<TextRenderer>(text_provider, color));
+
+  // UIアンカーが指定されている場合は追加
+  if (anchor) {
+    entity->addComponent(std::make_unique<UIAnchorComponent>(*anchor));
+  }
 
   return entity;
 }

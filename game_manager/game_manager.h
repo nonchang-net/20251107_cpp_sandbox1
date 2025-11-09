@@ -17,6 +17,8 @@ namespace MyGame {
  *
  * GameImplementation conceptを使用して、コンパイル時に型チェックを行います。
  * ジョイスティックの管理や、SDL_Eventの委譲を担当します。
+ * 
+ * note: 現状、無理やりconceptのrequires試すためだけにtemplate書いてるだけになっていて恩恵は特にないけど練習なので気にせずで。
  */
 template <typename GameType>
   requires(GameImplementation<GameType>)
