@@ -131,6 +131,10 @@ class TestImpl3 final : public GameImpl {
   Entity* player_ = nullptr;  // プレイヤーエンティティへの参照
   Utilities::FpsCounter fps_counter_;  // FPS計測
 
+  // タイムスケール管理
+  float target_timescale_ = 1.0f;  // Tキーで切り替えるタイムスケール（1.0 or 0.5）
+  float current_timescale_ = 1.0f;  // 現在のタイムスケール（デバッグ表示用）
+
  public:
   TestImpl3(SDL_Renderer* renderer)
       : renderer_(renderer), last_time_(SDL_GetTicks()), spawn_timer_(0) {
@@ -169,9 +173,36 @@ class TestImpl3 final : public GameImpl {
           entity_manager_.clear();
           initializeEntities();
           break;
+        case SDL_SCANCODE_T: {
+          // Tキーでタイムスケールを切り替え（1.0 ↔ 0.5）
+          target_timescale_ = (target_timescale_ == 1.0f) ? 0.5f : 1.0f;
+
+          // タイムスケール設定要求イベントを発火
+          SDL_Event request_event;
+          SDL_zero(request_event);
+          request_event.type = EVENT_REQUEST_SET_TIMESCALE;
+          // floatをポインタで渡すのは危険なので、整数に変換（100倍して整数化）
+          request_event.user.code = static_cast<Sint32>(target_timescale_ * 100.0f);
+          SDL_PushEvent(&request_event);
+          break;
+        }
+        case SDL_SCANCODE_P: {
+          // Pキーでポーズトグル
+          SDL_Event request_event;
+          SDL_zero(request_event);
+          request_event.type = EVENT_REQUEST_TOGGLE_PAUSE;
+          SDL_PushEvent(&request_event);
+          break;
+        }
         default:
           break;
       }
+    } else if (event->type == EVENT_TIMESCALE_CHANGED) {
+      // タイムスケール変更イベントを受け取る（デバッグ表示用に現在値を保存）
+      // GameManagerから現在のタイムスケール値を取得する必要があるが、
+      // ここではイベント経由で値を受け取る設計にする
+      // event->user.codeに整数化された値が入っている想定
+      current_timescale_ = static_cast<float>(event->user.code) / 100.0f;
     }
     return SDL_APP_CONTINUE;
   }
@@ -181,17 +212,20 @@ class TestImpl3 final : public GameImpl {
     Uint64 delta_time = current_time - last_time_;
     last_time_ = current_time;
 
-    // FPS計測
+    // FPS計測（タイムスケールの影響を受けない）
     fps_counter_.update();
+
+    // タイムスケールを適用したdelta_timeを計算
+    Uint64 scaled_delta_time = static_cast<Uint64>(delta_time * current_timescale_);
 
     // プレイヤー入力処理
     handlePlayerInput();
 
-    // エンティティの更新
-    entity_manager_.updateAll(delta_time);
+    // エンティティの更新（タイムスケールを適用）
+    entity_manager_.updateAll(scaled_delta_time);
 
-    // 定期的に新しいエンティティを追加（デモ）
-    spawn_timer_ += delta_time;
+    // 定期的に新しいエンティティを追加（デモ、タイムスケールを適用）
+    spawn_timer_ += scaled_delta_time;
     if (spawn_timer_ > 2000 && entity_manager_.getEntityCount() < 50) {
       spawnRandomEntity();
       spawn_timer_ = 0;
@@ -229,11 +263,17 @@ class TestImpl3 final : public GameImpl {
     auto* velocity = player_->getComponent<VelocityMove>();
     if (!velocity) return;
 
+    // ポーズ中は入力を無効化
+    if (current_timescale_ == 0.0f) {
+      velocity->setVelocity(0.0f, 0.0f);
+      return;
+    }
+
     // キーボード状態を取得
     const bool* keys = SDL_GetKeyboardState(nullptr);
 
     // 移動速度（ピクセル/秒）
-    const float speed = 3.0f;
+    const float speed = 180.0f;  // 60FPSで3ピクセル/フレーム相当
 
     // 移動方向を計算
     float vx = 0.0f;
@@ -267,7 +307,7 @@ class TestImpl3 final : public GameImpl {
         createRectEntity(1, 100, 100, 50, 50, SDL_Color{255, 100, 100, 255});
     rect1->setStateFlag(toIndex(TestImpl3StateFlag::Visible), 1);
     if (auto* vel = rect1->getComponent<VelocityMove>()) {
-      vel->setVelocity(2.0f, 1.5f);
+      vel->setVelocity(120.0f, 90.0f);  // 60FPSで2.0, 1.5ピクセル/フレーム相当
     }
     rect1->addComponent(std::make_unique<BounceOnEdge>());
     entity_manager_.addEntity(std::move(rect1));
@@ -276,7 +316,7 @@ class TestImpl3 final : public GameImpl {
         createRectEntity(1, 300, 200, 60, 60, SDL_Color{100, 255, 100, 255});
     rect2->setStateFlag(toIndex(TestImpl3StateFlag::Visible), 1);
     if (auto* vel = rect2->getComponent<VelocityMove>()) {
-      vel->setVelocity(-1.5f, 2.0f);
+      vel->setVelocity(-90.0f, 120.0f);  // 60FPSで-1.5, 2.0ピクセル/フレーム相当
     }
     rect2->addComponent(std::make_unique<BounceOnEdge>());
     entity_manager_.addEntity(std::move(rect2));
@@ -305,7 +345,7 @@ class TestImpl3 final : public GameImpl {
       ang_vel->setAngularVelocity(-90.0f);  // -90度/秒で逆回転
     }
     if (auto* vel = rotate_rect2->getComponent<VelocityMove>()) {
-      vel->setVelocity(1.0f, 0.5f);  // 移動しながら回転
+      vel->setVelocity(60.0f, 30.0f);  // 移動しながら回転（60FPSで1.0, 0.5ピクセル/フレーム相当）
     }
     entity_manager_.addEntity(std::move(rotate_rect2));
 
@@ -399,6 +439,19 @@ class TestImpl3 final : public GameImpl {
         SDL_Color{255, 255, 255, 255}, &top_left);
     fps_text->setStateFlag(toIndex(TestImpl3StateFlag::Visible), 1);
     entity_manager_.addEntity(std::move(fps_text));
+
+    // タイムスケール表示（UI要素として左上にアンカー）
+    auto timescale_text = createTextEntity(
+        10, 10, 45,
+        [this]() {
+          static char buffer[64];
+          SDL_snprintf(buffer, sizeof(buffer), "TimeScale: %.2fx",
+                       current_timescale_);
+          return std::string(buffer);
+        },
+        SDL_Color{255, 255, 0, 255}, &top_left);
+    timescale_text->setStateFlag(toIndex(TestImpl3StateFlag::Visible), 1);
+    entity_manager_.addEntity(std::move(timescale_text));
   }
 
   void spawnRandomEntity() {
@@ -412,8 +465,8 @@ class TestImpl3 final : public GameImpl {
     entity->setStateFlag(toIndex(TestImpl3StateFlag::Visible), 1);
 
     if (auto* vel = entity->getComponent<VelocityMove>()) {
-      vel->setVelocity((SDL_randf() - 0.5f) * 4.0f,
-                       (SDL_randf() - 0.5f) * 4.0f);
+      vel->setVelocity((SDL_randf() - 0.5f) * 240.0f,
+                       (SDL_randf() - 0.5f) * 240.0f);  // 60FPSで±2ピクセル/フレーム相当
     }
     entity->addComponent(std::make_unique<BounceOnEdge>());
 

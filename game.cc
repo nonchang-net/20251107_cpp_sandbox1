@@ -73,13 +73,28 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
 }
 
 SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event) {
+  AppState* as = (AppState*)appstate;
+
   switch (event->type) {
     case SDL_EVENT_QUIT:
       return SDL_APP_SUCCESS;
+    case MyGame::EVENT_REQUEST_SET_TIMESCALE: {
+      // タイムスケール設定要求を処理
+      float timescale = static_cast<float>(event->user.code) / 100.0f;
+      as->gameManager->setTimeScale(timescale);
+      SDL_Log("Timescale set to %.2f", timescale);
+      break;
+    }
+    case MyGame::EVENT_REQUEST_TOGGLE_PAUSE: {
+      // ポーズトグル要求を処理
+      as->gameManager->togglePause();
+      SDL_Log("Pause toggled: %s", as->gameManager->isPaused() ? "PAUSED" : "RUNNING");
+      break;
+    }
     default:
       break;
   }
-  AppState* as = (AppState*)appstate;
+
   return as->gameManager->handleSdlEvent(event);
 }
 

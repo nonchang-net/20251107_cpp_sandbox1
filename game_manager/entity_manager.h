@@ -744,7 +744,10 @@ inline void VelocityMove::update(Entity* entity, Uint64 delta_time) {
   // Locatorコンポーネントを取得して座標を更新
   if (auto* locator = entity->getComponent<Locator>()) {
     auto [x, y] = locator->getPosition();
-    locator->setPosition(x + velocity_x_, y + velocity_y_);
+    // delta_timeをミリ秒→秒に変換して速度を適用
+    // 速度の単位は「ピクセル/秒」
+    float dt_sec = delta_time / 1000.0f;
+    locator->setPosition(x + velocity_x_ * dt_sec, y + velocity_y_ * dt_sec);
   }
 }
 
