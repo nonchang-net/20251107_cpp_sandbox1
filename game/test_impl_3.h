@@ -19,10 +19,12 @@ namespace MyGame {
 namespace MMLPresets {
   constexpr auto frog_song = "t120 o4 l4 @0 cdefedec"_mml;
   constexpr auto oscillator_demo = "t140 o4 l8 @1 cdefgab>c r4 @2 <bagfedc"_mml;
+  constexpr auto volume_demo = "t120 o4 l8 @0 v15 cccc v12 cccc v8 cccc v4 cccc v0 cccc"_mml;
 
   // コンパイル時評価の確認（static_assertで強制的にコンパイル時評価）
   static_assert(frog_song.size() == 8, "Frog song should have 8 notes");
   static_assert(oscillator_demo.size() == 16, "Oscillator demo should have 16 notes (including rest)");
+  static_assert(volume_demo.size() == 20, "Volume demo should have 20 notes");
 }
 
 /**
@@ -158,6 +160,8 @@ class TestImpl3 final : public GameImpl {
   std::unique_ptr<SimpleSynthesizer> synthesizer2_;
   std::unique_ptr<Sequencer> sequencer2_;
 
+  float sequencer_vol_ = 0.8f;
+
 
  public:
   TestImpl3(SDL_Renderer* renderer)
@@ -187,12 +191,19 @@ class TestImpl3 final : public GameImpl {
 
     // シンセx2初期化 和音テスト用
     synthesizer1_ = std::make_unique<SimpleSynthesizer>(44100);
+    synthesizer1_->setVolume(0.5f);
     synthesizer1_->getEnvelope().setADSR(0.01f, 0.1f, 0.5f, 0.1f);
     sequencer1_ = std::make_unique<Sequencer>(synthesizer1_.get(), 120.0f);
 
     synthesizer2_ = std::make_unique<SimpleSynthesizer>(44100);
+    synthesizer2_->setVolume(0.5f);
     synthesizer2_->getEnvelope().setADSR(0.01f, 0.1f, 0.5f, 0.1f);
     sequencer2_ = std::make_unique<Sequencer>(synthesizer2_.get(), 120.0f);
+
+
+    sequencer_->setVolume(sequencer_vol_);
+    sequencer1_->setVolume(sequencer_vol_);
+    sequencer2_->setVolume(sequencer_vol_);
 
     // テクスチャ読み込み後にエンティティを初期化
     initializeEntities();
@@ -321,12 +332,21 @@ class TestImpl3 final : public GameImpl {
           // sequencer_->clear();
           // sequencer_->setSequence(MMLPresets::frog_song);
 
+          // 多重演奏検証
           sequencer1_->clear();
           sequencer2_->clear();
           // sequencer1_->setSequence("t180 o3 l8 @1 cdefgfedc"_mml);
           // sequencer2_->setSequence("t180 o4 l8 @2 edcdefgfe"_mml);
-          sequencer1_->setSequence("t180 o3 l8 @1 cc>c<cc>c<c<b-rb->b-<b-b-<b->cd"_mml);
-          sequencer2_->setSequence("t180 o4 l8 @2 edcdefggrgrgfgeg"_mml);
+          sequencer1_->setSequence(
+            "t180 o3 l8 @1"_mml
+            "cc>c<c c>c<c<b- rb->b-<b- b-<b->cd"_mml
+            "aa>a<a a>a<a<a- ra->a-<a- a-<a->b-<b-"_mml
+          );
+          sequencer2_->setSequence(
+            "t180 o4 l8 @2"_mml
+            "edcd efrg rgrg fgeg"_mml
+            "fefg ab-r>c rcrc< b-rb-r"_mml
+          );
           sequencer1_->play();
           sequencer2_->play();
           break;
@@ -342,12 +362,42 @@ class TestImpl3 final : public GameImpl {
           sequencer_->play();
           break;
         }
+        case SDL_SCANCODE_V: {
+          // Vキー: ボリュームデモ（v15→v12→v8→v4→v0でフェードアウト）
+          sequencer_->clear();
+          sequencer_->setSequence(MMLPresets::volume_demo);
+          sequencer_->play();
+          break;
+        }
         case SDL_SCANCODE_0: {
           // 0キー: シーケンス停止
           sequencer_->stop();
           synthesizer_->noteOff();
+          sequencer1_->stop();
+          synthesizer1_->noteOff();
+          sequencer2_->stop();
+          synthesizer2_->noteOff();
           break;
         }
+
+        case SDL_SCANCODE_PERIOD:
+          sequencer_vol_ += 0.1f;
+          if(sequencer_vol_ > 1.0f) sequencer_vol_ = 1.0f;
+          sequencer_->setVolume(sequencer_vol_);
+          sequencer1_->setVolume(sequencer_vol_);
+          sequencer2_->setVolume(sequencer_vol_);
+          break;
+
+        case SDL_SCANCODE_COMMA:
+          sequencer_vol_ -= 0.1f;
+          if(sequencer_vol_ < 0) sequencer_vol_ = 0;
+          sequencer_->setVolume(sequencer_vol_);
+          sequencer1_->setVolume(sequencer_vol_);
+          sequencer2_->setVolume(sequencer_vol_);
+          break;
+
+
+
         default:
           break;
       }
@@ -399,7 +449,7 @@ class TestImpl3 final : public GameImpl {
                  entity_manager_.getEntityCount());
     SDL_RenderDebugText(renderer_, 10, 10, buffer);
     SDL_RenderDebugText(renderer_, 10, 20, "R: Reset, C: Cleanup, Q: Quit");
-    SDL_RenderDebugText(renderer_, 10, 30, "Space: Test, 1-8: Scale, O: Wave, Enter/M: MML");
+    SDL_RenderDebugText(renderer_, 10, 30, "Space: Test, 1-8: Scale, O: Wave, Enter/M/V: MML");
 
     // サウンドシンセサイザーとシーケンサーを更新
     synthesizer_->update();

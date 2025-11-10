@@ -210,7 +210,8 @@ class SimpleSynthesizer {
   explicit SimpleSynthesizer(int sample_rate = 44100)
       : sample_rate_(sample_rate), stream_(nullptr), current_sample_(0),
         is_playing_(false), note_on_time_(0.0f), note_off_time_(0.0f),
-        gate_(false), note_duration_(0.0f), debug_first_samples_(false) {
+        gate_(false), note_duration_(0.0f), note_volume_(1.0f),
+        master_volume_(1.0f), debug_first_samples_(false) {
     // デフォルトのオシレーターとエンベロープを設定
     oscillator_ = std::make_unique<Oscillator>(WaveType::Sine, 440.0f);
     envelope_ = std::make_unique<Envelope>(0.01f, 0.1f, 0.7f, 0.2f);
@@ -265,11 +266,26 @@ class SimpleSynthesizer {
   Envelope& getEnvelope() { return *envelope_; }
 
   /**
+   * @brief マスターボリュームを設定
+   * @param volume ボリューム（0.0〜1.0）
+   */
+  void setVolume(float volume) {
+    master_volume_ = SDL_clamp(volume, 0.0f, 1.0f);
+  }
+
+  /**
+   * @brief マスターボリュームを取得
+   * @return ボリューム（0.0〜1.0）
+   */
+  float getVolume() const { return master_volume_; }
+
+  /**
    * @brief ノートオン（音を鳴らし始める）
    * @param frequency 周波数（Hz）
    * @param duration 音の長さ（秒）、0.0なら無限（手動でnoteOff()が必要）
+   * @param volume ノート単位のボリューム（0.0〜1.0）、デフォルトは1.0
    */
-  void noteOn(float frequency, float duration = 0.0f) {
+  void noteOn(float frequency, float duration = 0.0f, float volume = 1.0f) {
     if (!stream_) {
       SDL_LogError(SDL_LOG_CATEGORY_AUDIO, "Audio stream not initialized");
       return;
@@ -280,11 +296,13 @@ class SimpleSynthesizer {
     note_on_time_ = 0.0f;
     note_off_time_ = 0.0f;
     note_duration_ = duration;
+    note_volume_ = SDL_clamp(volume, 0.0f, 1.0f);
     gate_ = true;
     is_playing_ = true;
     debug_first_samples_ = true;  // デバッグログを有効化
 
-    SYNTH_LOG("NoteOn: %.2f Hz, duration: %.2f sec, stream=%p", frequency, duration, stream_);
+    SYNTH_LOG("NoteOn: %.2f Hz, duration: %.2f sec, volume: %.2f, stream=%p",
+              frequency, duration, note_volume_, stream_);
   }
 
   /**
@@ -392,8 +410,9 @@ class SimpleSynthesizer {
       // 波形を生成
       float wave = oscillator_->generate(phase);
 
-      // エンベロープを適用
-      samples[i] = wave * envelope_value;
+      // エンベロープとボリュームを適用
+      // 最終ボリューム = 波形 × エンベロープ × ノートボリューム × マスターボリューム
+      samples[i] = wave * envelope_value * note_volume_ * master_volume_;
 
       // クリッピング防止
       if (samples[i] > 1.0f) samples[i] = 1.0f;
@@ -433,6 +452,8 @@ class SimpleSynthesizer {
   float note_off_time_;    // ノートオフ時刻（秒）
   bool gate_;              // ゲート状態（true = ノートオン、false = ノートオフ）
   float note_duration_;    // 音の長さ（秒）、0.0なら無限
+  float note_volume_;      // ノート単位のボリューム（0.0〜1.0）
+  float master_volume_;    // マスターボリューム（0.0〜1.0）
   bool debug_first_samples_;  // デバッグ用：最初のサンプルをログ出力
 };
 
@@ -583,12 +604,14 @@ struct NoteData {
   float duration;    // 長さ（秒）
   bool is_rest;      // 休符かどうか
   WaveType wave_type; // 音色（オシレーター）
+  float volume;      // ボリューム（0.0〜1.0）
 
   /**
    * @brief デフォルトコンストラクタ（配列初期化用）
    */
   constexpr NoteData()
-      : note(Note::C), octave(4), duration(0.0f), is_rest(true), wave_type(WaveType::Sine) {}
+      : note(Note::C), octave(4), duration(0.0f), is_rest(true),
+        wave_type(WaveType::Sine), volume(1.0f) {}
 
   /**
    * @brief コンストラクタ
@@ -597,9 +620,12 @@ struct NoteData {
    * @param dur 長さ（秒）
    * @param rest 休符かどうか
    * @param wave 音色
+   * @param vol ボリューム（0.0〜1.0）
    */
-  constexpr NoteData(Note n, int oct, float dur, bool rest = false, WaveType wave = WaveType::Sine)
-      : note(n), octave(oct), duration(dur), is_rest(rest), wave_type(wave) {}
+  constexpr NoteData(Note n, int oct, float dur, bool rest = false,
+                    WaveType wave = WaveType::Sine, float vol = 1.0f)
+      : note(n), octave(oct), duration(dur), is_rest(rest),
+        wave_type(wave), volume(vol) {}
 
   /**
    * @brief 周波数を取得
@@ -692,6 +718,7 @@ class FixedNoteSequence {
  * - l数字: デフォルトの音符長を設定
  * - t数字: テンポ（BPM）を設定
  * - @数字: 音色を設定（0=サイン波、1=矩形波、2=ノコギリ波）
+ * - v数字: ボリューム設定（v0〜v15で0.0〜1.0にマップ）
  * - .: 付点音符（音符の長さを1.5倍に）
  * - <: オクターブを1つ下げる
  * - >: オクターブを1つ上げる
@@ -713,6 +740,7 @@ class MMLParser {
     int default_length = 4;  // 4分音符
     int octave = 4;
     WaveType wave_type = WaveType::Sine;
+    float volume = 1.0f;     // ボリューム（0.0〜1.0）
 
     size_t i = 0;
     while (i < mml.length()) {
@@ -758,6 +786,17 @@ class MMLParser {
         continue;
       }
 
+      // ボリューム設定 (v0〜v15など)
+      if (c == 'v') {
+        i++;
+        int vol = parseNumber(mml, i);
+        // v0〜v15を0.0〜1.0にマップ
+        volume = static_cast<float>(vol) / 15.0f;
+        if (volume < 0.0f) volume = 0.0f;
+        if (volume > 1.0f) volume = 1.0f;
+        continue;
+      }
+
       // オクターブ上げ
       if (c == '>') {
         if (octave < 8) octave++;
@@ -785,7 +824,7 @@ class MMLParser {
           i++;
         }
         float duration = MusicUtil::noteDuration(bpm, length, dotted);
-        result.push_back(NoteData(Note::C, 0, duration, true, wave_type));
+        result.push_back(NoteData(Note::C, 0, duration, true, wave_type, volume));
         continue;
       }
 
@@ -817,7 +856,7 @@ class MMLParser {
         }
 
         float duration = MusicUtil::noteDuration(bpm, length, dotted);
-        result.push_back(NoteData(note, octave, duration, false, wave_type));
+        result.push_back(NoteData(note, octave, duration, false, wave_type, volume));
         continue;
       }
 
@@ -903,8 +942,9 @@ class Sequencer {
    * @param bpm BPM（Beats Per Minute）
    */
   Sequencer(SimpleSynthesizer* synthesizer, float bpm = 120.0f)
-      : synthesizer_(synthesizer), bpm_(bpm), current_note_index_(0),
-        is_playing_(false), sequence_time_(0.0f), last_update_time_(0) {}
+      : synthesizer_(synthesizer), bpm_(bpm), volume_(1.0f),
+        current_note_index_(0), is_playing_(false), sequence_time_(0.0f),
+        last_update_time_(0) {}
 
   /**
    * @brief BPMを設定
@@ -917,6 +957,20 @@ class Sequencer {
    * @return BPM
    */
   float getBPM() const { return bpm_; }
+
+  /**
+   * @brief シーケンサーのボリュームを設定
+   * @param volume ボリューム（0.0〜1.0）
+   */
+  void setVolume(float volume) {
+    volume_ = SDL_clamp(volume, 0.0f, 1.0f);
+  }
+
+  /**
+   * @brief シーケンサーのボリュームを取得
+   * @return ボリューム（0.0〜1.0）
+   */
+  float getVolume() const { return volume_; }
 
   /**
    * @brief シーケンスをクリア
@@ -934,11 +988,12 @@ class Sequencer {
    * @param note_division 音符の分数（4 = 4分音符）
    * @param dotted 付点音符かどうか
    * @param wave_type 音色（オシレーター）
+   * @param volume ボリューム（0.0〜1.0）
    */
   void addNote(Note note, int octave, int note_division, bool dotted = false,
-               WaveType wave_type = WaveType::Sine) {
+               WaveType wave_type = WaveType::Sine, float volume = 1.0f) {
     float duration = MusicUtil::noteDuration(bpm_, note_division, dotted);
-    sequence_.emplace_back(note, octave, duration, false, wave_type);
+    sequence_.emplace_back(note, octave, duration, false, wave_type, volume);
   }
 
   /**
@@ -949,7 +1004,7 @@ class Sequencer {
   void addRest(int note_division, bool dotted = false) {
     float duration = MusicUtil::noteDuration(bpm_, note_division, dotted);
     // is_restフラグで休符を表現
-    sequence_.emplace_back(Note::C, 0, duration, true, WaveType::Sine);
+    sequence_.emplace_back(Note::C, 0, duration, true, WaveType::Sine, 1.0f);
   }
 
   /**
@@ -1070,13 +1125,17 @@ class Sequencer {
     // 音色を設定
     synthesizer_->getOscillator().setWaveType(note_data.wave_type);
 
+    // ボリュームを計算（シーケンサーボリューム × ノートボリューム）
+    float final_volume = volume_ * note_data.volume;
+
     // 音符を再生
     float frequency = note_data.getFrequency();
-    synthesizer_->noteOn(frequency, note_data.duration);
+    synthesizer_->noteOn(frequency, note_data.duration, final_volume);
   }
 
   SimpleSynthesizer* synthesizer_;         // シンセサイザー
   float bpm_;                              // BPM
+  float volume_;                           // シーケンサーのボリューム（0.0〜1.0）
   std::vector<NoteData> sequence_;         // 音符のシーケンス
   size_t current_note_index_;              // 現在の音符インデックス
   bool is_playing_;                        // 再生中フラグ
