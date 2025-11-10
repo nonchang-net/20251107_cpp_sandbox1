@@ -10,6 +10,8 @@
 #include "../game_manager/game_impl.h"
 #include "../game_manager/utilities/fps_counter.h"
 #include "../game_manager/utilities/texture_loader.h"
+#include "../game_manager/sound_synthesizer.h"
+
 namespace MyGame {
 
 /**
@@ -135,6 +137,12 @@ class TestImpl3 final : public GameImpl {
   float target_timescale_ = 1.0f;  // Tキーで切り替えるタイムスケール（1.0 or 0.5）
   float current_timescale_ = 1.0f;  // 現在のタイムスケール（デバッグ表示用）
 
+  // サウンドシンセサイザー
+  std::unique_ptr<SimpleSynthesizer> synthesizer_;
+  std::unique_ptr<Sequencer> sequencer_;
+  WaveType ocillatorWaveType_ = WaveType::Sine;
+
+
  public:
   TestImpl3(SDL_Renderer* renderer)
       : renderer_(renderer), last_time_(SDL_GetTicks()), spawn_timer_(0) {
@@ -150,6 +158,16 @@ class TestImpl3 final : public GameImpl {
     } else {
       texture_ = texture;
     }
+
+    // サウンドシンセサイザーを初期化
+    synthesizer_ = std::make_unique<SimpleSynthesizer>(44100);
+    sequencer_ = std::make_unique<Sequencer>(synthesizer_.get(), 120.0f);
+
+    // エンベロープを設定（ノイズ軽減のためAttackを長めに）
+    synthesizer_->getEnvelope().setAttackTime(0.05f);   // 0.01→0.05に変更
+    synthesizer_->getEnvelope().setDecayTime(0.1f);
+    synthesizer_->getEnvelope().setSustainLevel(0.7f);  // 0.5→0.7に変更
+    synthesizer_->getEnvelope().setReleaseTime(0.15f);  // 0.1→0.15に変更
 
     // テクスチャ読み込み後にエンティティを初期化
     initializeEntities();
@@ -192,6 +210,120 @@ class TestImpl3 final : public GameImpl {
           SDL_zero(request_event);
           request_event.type = EVENT_REQUEST_TOGGLE_PAUSE;
           SDL_PushEvent(&request_event);
+          break;
+        }
+        // サウンドテスト用キー
+        case SDL_SCANCODE_SPACE: {
+          // Spaceキー: A4（440Hz）のテストトーン
+          synthesizer_->getOscillator().setWaveType(ocillatorWaveType_);
+          synthesizer_->noteOn(440.0f, 0.5f);
+          SDL_Log("Test tone: 440Hz (A4)");
+          break;
+        }
+        case SDL_SCANCODE_1: {
+          // 1キー: C4（ド）
+          float freq = MusicUtil::noteToFrequency(Note::C, 4);
+          synthesizer_->getOscillator().setWaveType(ocillatorWaveType_);
+          synthesizer_->noteOn(freq, 0.3f);
+          SDL_Log("Note: C4 (%.2f Hz)", freq);
+          break;
+        }
+        case SDL_SCANCODE_2: {
+          // 2キー: D4（レ）
+          float freq = MusicUtil::noteToFrequency(Note::D, 4);
+          synthesizer_->getOscillator().setWaveType(ocillatorWaveType_);
+          synthesizer_->noteOn(freq, 0.3f);
+          SDL_Log("Note: D4 (%.2f Hz)", freq);
+          break;
+        }
+        case SDL_SCANCODE_3: {
+          // 3キー: E4（ミ）
+          float freq = MusicUtil::noteToFrequency(Note::E, 4);
+          synthesizer_->getOscillator().setWaveType(ocillatorWaveType_);
+          synthesizer_->noteOn(freq, 0.3f);
+          SDL_Log("Note: E4 (%.2f Hz)", freq);
+          break;
+        }
+        case SDL_SCANCODE_4: {
+          // 4キー: F4（ファ）
+          float freq = MusicUtil::noteToFrequency(Note::F, 4);
+          synthesizer_->getOscillator().setWaveType(ocillatorWaveType_);
+          synthesizer_->noteOn(freq, 0.3f);
+          SDL_Log("Note: F4 (%.2f Hz)", freq);
+          break;
+        }
+        case SDL_SCANCODE_5: {
+          // 5キー: G4（ソ）
+          float freq = MusicUtil::noteToFrequency(Note::G, 4);
+          synthesizer_->getOscillator().setWaveType(ocillatorWaveType_);
+          synthesizer_->noteOn(freq, 0.3f);
+          SDL_Log("Note: G4 (%.2f Hz)", freq);
+          break;
+        }
+        case SDL_SCANCODE_6: {
+          // 6キー: A4（ラ）
+          float freq = MusicUtil::noteToFrequency(Note::A, 4);
+          synthesizer_->getOscillator().setWaveType(ocillatorWaveType_);
+          synthesizer_->noteOn(freq, 0.3f);
+          SDL_Log("Note: A4 (%.2f Hz)", freq);
+          break;
+        }
+        case SDL_SCANCODE_7: {
+          // 7キー: B4（シ）
+          float freq = MusicUtil::noteToFrequency(Note::B, 4);
+          synthesizer_->getOscillator().setWaveType(ocillatorWaveType_);
+          synthesizer_->noteOn(freq, 0.3f);
+          SDL_Log("Note: B4 (%.2f Hz)", freq);
+          break;
+        }
+        case SDL_SCANCODE_8: {
+          // 8キー: C5（高いド）
+          float freq = MusicUtil::noteToFrequency(Note::C, 5);
+          synthesizer_->getOscillator().setWaveType(ocillatorWaveType_);
+          synthesizer_->noteOn(freq, 0.3f);
+          SDL_Log("Note: C5 (%.2f Hz)", freq);
+          break;
+        }
+        
+        case SDL_SCANCODE_O: {
+          // オシレータ切り替え
+          switch(ocillatorWaveType_){
+            case WaveType::Sine:
+              ocillatorWaveType_ = WaveType::Square;
+              break;
+            case WaveType::Square:
+              ocillatorWaveType_ = WaveType::Sawtooth;
+              break;
+            default:
+              ocillatorWaveType_ = WaveType::Sine;
+          }
+          break;
+        }
+
+        case SDL_SCANCODE_RETURN: {
+          // Enterキー: 簡単なメロディーシーケンス（カエルの歌）
+          sequencer_->clear();
+          sequencer_->setBPM(120.0f);
+
+          // カエルの歌: ド レ ミ ファ ミ レ ド
+          sequencer_->addNote(Note::C, 4, 4);  // ド（4分音符）
+          sequencer_->addNote(Note::D, 4, 4);  // レ
+          sequencer_->addNote(Note::E, 4, 4);  // ミ
+          sequencer_->addNote(Note::F, 4, 4);  // ファ
+          sequencer_->addNote(Note::E, 4, 4);  // ミ
+          sequencer_->addNote(Note::D, 4, 4);  // レ
+          sequencer_->addNote(Note::C, 4, 4);  // ド
+
+          synthesizer_->getOscillator().setWaveType(ocillatorWaveType_);
+          sequencer_->play();
+          SDL_Log("Playing melody sequence");
+          break;
+        }
+        case SDL_SCANCODE_0: {
+          // 0キー: シーケンス停止
+          sequencer_->stop();
+          synthesizer_->noteOff();
+          SDL_Log("Sequence stopped");
           break;
         }
         default:
@@ -245,6 +377,11 @@ class TestImpl3 final : public GameImpl {
                  entity_manager_.getEntityCount());
     SDL_RenderDebugText(renderer_, 10, 10, buffer);
     SDL_RenderDebugText(renderer_, 10, 20, "R: Reset, C: Cleanup, Q: Quit");
+    SDL_RenderDebugText(renderer_, 10, 30, "Space: Test tone, 1-8: Do-Re-Mi, Enter: Melody");
+
+    // サウンドシンセサイザーとシーケンサーを更新
+    synthesizer_->update();
+    sequencer_->update();
 
     SDL_RenderPresent(renderer_);
     return SDL_APP_CONTINUE;
