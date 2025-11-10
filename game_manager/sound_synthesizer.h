@@ -944,7 +944,8 @@ class Sequencer {
   Sequencer(SimpleSynthesizer* synthesizer, float bpm = 120.0f)
       : synthesizer_(synthesizer), bpm_(bpm), volume_(1.0f),
         current_note_index_(0), is_playing_(false), sequence_time_(0.0f),
-        last_update_time_(0) {}
+        last_update_time_(0), loop_enabled_(false), loop_count_(-1),
+        current_loop_(0) {}
 
   /**
    * @brief BPMを設定
@@ -971,6 +972,28 @@ class Sequencer {
    * @return ボリューム（0.0〜1.0）
    */
   float getVolume() const { return volume_; }
+
+  /**
+   * @brief ループ再生を設定
+   * @param enabled ループを有効にするか
+   * @param count ループ回数（-1で無限ループ、0以上で指定回数、0で1回のみ再生）
+   */
+  void setLoop(bool enabled, int count = -1) {
+    loop_enabled_ = enabled;
+    loop_count_ = count;
+  }
+
+  /**
+   * @brief ループが有効かどうか
+   * @return ループが有効ならtrue
+   */
+  bool isLoopEnabled() const { return loop_enabled_; }
+
+  /**
+   * @brief 現在のループ回数を取得
+   * @return 現在のループ回数（0始まり）
+   */
+  int getCurrentLoop() const { return current_loop_; }
 
   /**
    * @brief シーケンスをクリア
@@ -1055,6 +1078,7 @@ class Sequencer {
 
     current_note_index_ = 0;
     sequence_time_ = 0.0f;
+    current_loop_ = 0;
     is_playing_ = true;
     last_update_time_ = SDL_GetTicks();
 
@@ -1101,13 +1125,41 @@ class Sequencer {
           playCurrentNote();
         } else {
           // シーケンス終了
-          is_playing_ = false;
+          handleSequenceEnd();
         }
       }
     }
   }
 
  private:
+  /**
+   * @brief シーケンス終了時の処理
+   */
+  void handleSequenceEnd() {
+    if (!loop_enabled_) {
+      // ループが無効の場合は停止
+      is_playing_ = false;
+      return;
+    }
+
+    // ループ回数をチェック
+    if (loop_count_ >= 0) {
+      // 回数指定ループの場合
+      current_loop_++;
+      if (current_loop_ > loop_count_) {
+        // 指定回数に達したので停止
+        is_playing_ = false;
+        return;
+      }
+    }
+    // loop_count_ == -1の場合は無限ループ
+
+    // シーケンスを最初から再生
+    current_note_index_ = 0;
+    sequence_time_ = 0.0f;
+    playCurrentNote();
+  }
+
   /**
    * @brief 現在の音符を再生
    */
@@ -1141,6 +1193,9 @@ class Sequencer {
   bool is_playing_;                        // 再生中フラグ
   float sequence_time_;                    // シーケンス内の経過時間
   Uint64 last_update_time_;                // 前回の更新時刻
+  bool loop_enabled_;                      // ループ有効フラグ
+  int loop_count_;                         // ループ回数（-1=無限、0以上=指定回数）
+  int current_loop_;                       // 現在のループ回数
 };
 
 }  // namespace MyGame

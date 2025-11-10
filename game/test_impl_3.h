@@ -328,15 +328,14 @@ class TestImpl3 final : public GameImpl {
         }
 
         case SDL_SCANCODE_RETURN: {
-          // Enterキー: MMLでカエルの歌を再生（コンパイル時評価版）
-          // sequencer_->clear();
-          // sequencer_->setSequence(MMLPresets::frog_song);
-
-          // 多重演奏検証
+          // Enterキー: BGM風多重演奏（無限ループ）
           sequencer1_->clear();
           sequencer2_->clear();
-          // sequencer1_->setSequence("t180 o3 l8 @1 cdefgfedc"_mml);
-          // sequencer2_->setSequence("t180 o4 l8 @2 edcdefgfe"_mml);
+
+          // BGM用に無限ループを設定
+          sequencer1_->setLoop(true, -1);  // 無限ループ
+          sequencer2_->setLoop(true, -1);  // 無限ループ
+
           sequencer1_->setSequence(
             "t180 o3 l8 @1"_mml
             "cc>c<c c>c<c<b- rb->b-<b- b-<b->cd"_mml
@@ -357,7 +356,7 @@ class TestImpl3 final : public GameImpl {
         case SDL_SCANCODE_M: {
           // Mキー: MMLでオシレーター変更デモ（コンパイル時評価版）
           sequencer_->clear();
-          // sequencer_->setSequence(MMLPresets::oscillator_demo);
+          sequencer_->setLoop(false);  // ループ無効
           sequencer_->setSequence("t140 o4 l8 @1 cdefgab>c r4 @2 <bagfedc"_mml);
           sequencer_->play();
           break;
@@ -365,7 +364,24 @@ class TestImpl3 final : public GameImpl {
         case SDL_SCANCODE_V: {
           // Vキー: ボリュームデモ（v15→v12→v8→v4→v0でフェードアウト）
           sequencer_->clear();
+          sequencer_->setLoop(false);  // ループ無効
           sequencer_->setSequence(MMLPresets::volume_demo);
+          sequencer_->play();
+          break;
+        }
+        case SDL_SCANCODE_L: {
+          // Lキー: 無限ループ再生デモ
+          sequencer_->clear();
+          sequencer_->setLoop(true, -1);  // 無限ループ
+          sequencer_->setSequence(MMLPresets::frog_song);
+          sequencer_->play();
+          break;
+        }
+        case SDL_SCANCODE_K: {
+          // Kキー: 3回ループ再生デモ
+          sequencer_->clear();
+          sequencer_->setLoop(true, 3);  // 3回ループ（合計4回再生）
+          sequencer_->setSequence(MMLPresets::frog_song);
           sequencer_->play();
           break;
         }
@@ -449,7 +465,8 @@ class TestImpl3 final : public GameImpl {
                  entity_manager_.getEntityCount());
     SDL_RenderDebugText(renderer_, 10, 10, buffer);
     SDL_RenderDebugText(renderer_, 10, 20, "R: Reset, C: Cleanup, Q: Quit");
-    SDL_RenderDebugText(renderer_, 10, 30, "Space: Test, 1-8: Scale, O: Wave, Enter/M/V: MML");
+    SDL_RenderDebugText(renderer_, 10, 30, "Space: Test, 1-8: Scale, O: Wave");
+    SDL_RenderDebugText(renderer_, 10, 40, "Enter: Melody, M: Osc, V: Vol, L: Loop, K: 3xLoop");
 
     // サウンドシンセサイザーとシーケンサーを更新
     synthesizer_->update();
