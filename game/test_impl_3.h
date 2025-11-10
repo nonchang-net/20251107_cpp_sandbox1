@@ -14,6 +14,17 @@
 
 namespace MyGame {
 
+// MMLパーサーはconstexpr対応（コンパイル時評価）
+// FixedNoteSequence（固定長配列）を使用することで、完全なconstexpr変数として保存可能
+namespace MMLPresets {
+  constexpr auto frog_song = "t120 o4 l4 @0 cdefedec"_mml;
+  constexpr auto oscillator_demo = "t140 o4 l8 @1 cdefgab>c r4 @2 <bagfedc"_mml;
+
+  // コンパイル時評価の確認（static_assertで強制的にコンパイル時評価）
+  static_assert(frog_song.size() == 8, "Frog song should have 8 notes");
+  static_assert(oscillator_demo.size() == 16, "Oscillator demo should have 16 notes (including rest)");
+}
+
 /**
  * @brief TestImpl3で使用するエンティティ状態フラグ
  *
@@ -217,7 +228,6 @@ class TestImpl3 final : public GameImpl {
           // Spaceキー: A4（440Hz）のテストトーン
           synthesizer_->getOscillator().setWaveType(ocillatorWaveType_);
           synthesizer_->noteOn(440.0f, 0.5f);
-          SDL_Log("Test tone: 440Hz (A4)");
           break;
         }
         case SDL_SCANCODE_1: {
@@ -225,7 +235,6 @@ class TestImpl3 final : public GameImpl {
           float freq = MusicUtil::noteToFrequency(Note::C, 4);
           synthesizer_->getOscillator().setWaveType(ocillatorWaveType_);
           synthesizer_->noteOn(freq, 0.3f);
-          SDL_Log("Note: C4 (%.2f Hz)", freq);
           break;
         }
         case SDL_SCANCODE_2: {
@@ -233,7 +242,6 @@ class TestImpl3 final : public GameImpl {
           float freq = MusicUtil::noteToFrequency(Note::D, 4);
           synthesizer_->getOscillator().setWaveType(ocillatorWaveType_);
           synthesizer_->noteOn(freq, 0.3f);
-          SDL_Log("Note: D4 (%.2f Hz)", freq);
           break;
         }
         case SDL_SCANCODE_3: {
@@ -241,7 +249,6 @@ class TestImpl3 final : public GameImpl {
           float freq = MusicUtil::noteToFrequency(Note::E, 4);
           synthesizer_->getOscillator().setWaveType(ocillatorWaveType_);
           synthesizer_->noteOn(freq, 0.3f);
-          SDL_Log("Note: E4 (%.2f Hz)", freq);
           break;
         }
         case SDL_SCANCODE_4: {
@@ -249,7 +256,6 @@ class TestImpl3 final : public GameImpl {
           float freq = MusicUtil::noteToFrequency(Note::F, 4);
           synthesizer_->getOscillator().setWaveType(ocillatorWaveType_);
           synthesizer_->noteOn(freq, 0.3f);
-          SDL_Log("Note: F4 (%.2f Hz)", freq);
           break;
         }
         case SDL_SCANCODE_5: {
@@ -257,7 +263,6 @@ class TestImpl3 final : public GameImpl {
           float freq = MusicUtil::noteToFrequency(Note::G, 4);
           synthesizer_->getOscillator().setWaveType(ocillatorWaveType_);
           synthesizer_->noteOn(freq, 0.3f);
-          SDL_Log("Note: G4 (%.2f Hz)", freq);
           break;
         }
         case SDL_SCANCODE_6: {
@@ -265,7 +270,6 @@ class TestImpl3 final : public GameImpl {
           float freq = MusicUtil::noteToFrequency(Note::A, 4);
           synthesizer_->getOscillator().setWaveType(ocillatorWaveType_);
           synthesizer_->noteOn(freq, 0.3f);
-          SDL_Log("Note: A4 (%.2f Hz)", freq);
           break;
         }
         case SDL_SCANCODE_7: {
@@ -273,7 +277,6 @@ class TestImpl3 final : public GameImpl {
           float freq = MusicUtil::noteToFrequency(Note::B, 4);
           synthesizer_->getOscillator().setWaveType(ocillatorWaveType_);
           synthesizer_->noteOn(freq, 0.3f);
-          SDL_Log("Note: B4 (%.2f Hz)", freq);
           break;
         }
         case SDL_SCANCODE_8: {
@@ -281,7 +284,6 @@ class TestImpl3 final : public GameImpl {
           float freq = MusicUtil::noteToFrequency(Note::C, 5);
           synthesizer_->getOscillator().setWaveType(ocillatorWaveType_);
           synthesizer_->noteOn(freq, 0.3f);
-          SDL_Log("Note: C5 (%.2f Hz)", freq);
           break;
         }
         
@@ -301,29 +303,27 @@ class TestImpl3 final : public GameImpl {
         }
 
         case SDL_SCANCODE_RETURN: {
-          // Enterキー: 簡単なメロディーシーケンス（カエルの歌）
+          // Enterキー: MMLでカエルの歌を再生（コンパイル時評価版）
           sequencer_->clear();
-          sequencer_->setBPM(120.0f);
-
-          // カエルの歌: ド レ ミ ファ ミ レ ド
-          sequencer_->addNote(Note::C, 4, 4);  // ド（4分音符）
-          sequencer_->addNote(Note::D, 4, 4);  // レ
-          sequencer_->addNote(Note::E, 4, 4);  // ミ
-          sequencer_->addNote(Note::F, 4, 4);  // ファ
-          sequencer_->addNote(Note::E, 4, 4);  // ミ
-          sequencer_->addNote(Note::D, 4, 4);  // レ
-          sequencer_->addNote(Note::C, 4, 4);  // ド
-
-          synthesizer_->getOscillator().setWaveType(ocillatorWaveType_);
+          sequencer_->setSequence(MMLPresets::frog_song);
           sequencer_->play();
-          SDL_Log("Playing melody sequence");
+          break;
+        }
+        //   constexpr auto frog_song = "t120 o4 l4 @0 cdefedec"_mml;
+        //  constexpr auto oscillator_demo = "t140 o4 l8 @1 cdefgab>c r4 @2 <bagfedc"_mml;
+
+        case SDL_SCANCODE_M: {
+          // Mキー: MMLでオシレーター変更デモ（コンパイル時評価版）
+          sequencer_->clear();
+          // sequencer_->setSequence(MMLPresets::oscillator_demo);
+          sequencer_->setSequence("t140 o4 l8 @1 cdefgab>c r4 @2 <bagfedc"_mml);
+          sequencer_->play();
           break;
         }
         case SDL_SCANCODE_0: {
           // 0キー: シーケンス停止
           sequencer_->stop();
           synthesizer_->noteOff();
-          SDL_Log("Sequence stopped");
           break;
         }
         default:
@@ -377,7 +377,7 @@ class TestImpl3 final : public GameImpl {
                  entity_manager_.getEntityCount());
     SDL_RenderDebugText(renderer_, 10, 10, buffer);
     SDL_RenderDebugText(renderer_, 10, 20, "R: Reset, C: Cleanup, Q: Quit");
-    SDL_RenderDebugText(renderer_, 10, 30, "Space: Test tone, 1-8: Do-Re-Mi, Enter: Melody");
+    SDL_RenderDebugText(renderer_, 10, 30, "Space: Test, 1-8: Scale, O: Wave, Enter/M: MML");
 
     // サウンドシンセサイザーとシーケンサーを更新
     synthesizer_->update();
@@ -584,7 +584,7 @@ class TestImpl3 final : public GameImpl {
     // 動的テキスト（FPS表示、UI要素として左上にアンカー）
     static const UIAnchor top_left = UIAnchor::TopLeft;
     auto fps_text = createTextEntity(
-        10, 10, 30,
+        10, 10, 40,
         [this]() {
           static char buffer[64];
           SDL_snprintf(buffer, sizeof(buffer), "FPS: %.1f (%.2fms)",
@@ -598,7 +598,7 @@ class TestImpl3 final : public GameImpl {
 
     // タイムスケール表示（UI要素として左上にアンカー）
     auto timescale_text = createTextEntity(
-        10, 10, 45,
+        10, 10, 50,
         [this]() {
           static char buffer[64];
           SDL_snprintf(buffer, sizeof(buffer), "TimeScale: %.2fx",

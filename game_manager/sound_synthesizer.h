@@ -1,9 +1,21 @@
 #pragma once
 
 #include <SDL3/SDL.h>
+#include <array>
 #include <cmath>
 #include <memory>
+#include <span>
 #include <vector>
+
+// デバッグログの有効化フラグ（0 = 無効、1 = 有効）
+#define SOUND_SYNTHESIZER_DEBUG_LOG 0
+
+// デバッグログ用マクロ
+#if SOUND_SYNTHESIZER_DEBUG_LOG
+  #define SYNTH_LOG(...) SDL_Log(__VA_ARGS__)
+#else
+  #define SYNTH_LOG(...) ((void)0)
+#endif
 
 namespace MyGame {
 
@@ -211,13 +223,13 @@ class SimpleSynthesizer {
       return;
     }
 
-    SDL_Log("Audio stream initialized (callback mode): %p, sample_rate=%d", stream_, sample_rate_);
+    SYNTH_LOG("Audio stream initialized (callback mode): %p, sample_rate=%d", stream_, sample_rate_);
 
     // オーディオデバイスを再開（デフォルトは一時停止状態）
     if (!SDL_ResumeAudioStreamDevice(stream_)) {
       SDL_LogError(SDL_LOG_CATEGORY_AUDIO, "Failed to resume audio device: %s", SDL_GetError());
     } else {
-      SDL_Log("Audio device resumed successfully (callback mode)");
+      SYNTH_LOG("Audio device resumed successfully (callback mode)");
     }
   }
 
@@ -262,7 +274,7 @@ class SimpleSynthesizer {
     is_playing_ = true;
     debug_first_samples_ = true;  // デバッグログを有効化
 
-    SDL_Log("NoteOn: %.2f Hz, duration: %.2f sec, stream=%p", frequency, duration, stream_);
+    SYNTH_LOG("NoteOn: %.2f Hz, duration: %.2f sec, stream=%p", frequency, duration, stream_);
   }
 
   /**
@@ -272,7 +284,7 @@ class SimpleSynthesizer {
     if (gate_) {
       note_off_time_ = getCurrentTime();
       gate_ = false;
-      SDL_Log("NoteOff at %.2f sec", note_off_time_);
+      SYNTH_LOG("NoteOff at %.2f sec", note_off_time_);
     }
   }
 
@@ -305,7 +317,7 @@ class SimpleSynthesizer {
       float envelope_value = envelope_->process(current_time, gate_, note_off_time_);
       if (envelope_value <= 0.0f) {
         is_playing_ = false;
-        SDL_Log("Sound finished (envelope reached 0)");
+        SYNTH_LOG("Sound finished (envelope reached 0)");
       }
     }
   }
@@ -379,8 +391,8 @@ class SimpleSynthesizer {
 
       // 最初の数サンプルをログ出力（デバッグ用）
       if (debug_first_samples_ && i < 10) {
-        SDL_Log("Sample[%d]: time=%.6f, env=%.4f, phase=%.4f, wave=%.4f, output=%.4f",
-                i, current_time, envelope_value, phase, wave, samples[i]);
+        SYNTH_LOG("Sample[%d]: time=%.6f, env=%.4f, phase=%.4f, wave=%.4f, output=%.4f",
+                  i, current_time, envelope_value, phase, wave, samples[i]);
       }
 
       current_sample_++;
@@ -388,7 +400,7 @@ class SimpleSynthesizer {
 
     if (debug_first_samples_) {
       debug_first_samples_ = false;
-      SDL_Log("Generated %d samples, frequency=%.2f Hz", count, oscillator_->getFrequency());
+      SYNTH_LOG("Generated %d samples, frequency=%.2f Hz", count, oscillator_->getFrequency());
     }
   }
 
@@ -465,7 +477,7 @@ class MusicUtil {
    * @param bpm BPM（Beats Per Minute）
    * @return 1拍の長さ（秒）
    */
-  static float beatDuration(float bpm) {
+  static constexpr float beatDuration(float bpm) {
     return 60.0f / bpm;
   }
 
@@ -476,7 +488,7 @@ class MusicUtil {
    * @param dotted 付点音符かどうか（1.5倍になる）
    * @return 音符の長さ（秒）
    */
-  static float noteDuration(float bpm, int note_division, bool dotted = false) {
+  static constexpr float noteDuration(float bpm, int note_division, bool dotted = false) {
     // 4分音符を1拍とする
     float quarter_note = beatDuration(bpm);
     float duration = quarter_note * (4.0f / note_division);
@@ -559,15 +571,25 @@ struct NoteData {
   Note note;         // 音階
   int octave;        // オクターブ
   float duration;    // 長さ（秒）
+  bool is_rest;      // 休符かどうか
+  WaveType wave_type; // 音色（オシレーター）
+
+  /**
+   * @brief デフォルトコンストラクタ（配列初期化用）
+   */
+  constexpr NoteData()
+      : note(Note::C), octave(4), duration(0.0f), is_rest(true), wave_type(WaveType::Sine) {}
 
   /**
    * @brief コンストラクタ
    * @param n 音階
    * @param oct オクターブ
    * @param dur 長さ（秒）
+   * @param rest 休符かどうか
+   * @param wave 音色
    */
-  NoteData(Note n, int oct, float dur)
-      : note(n), octave(oct), duration(dur) {}
+  constexpr NoteData(Note n, int oct, float dur, bool rest = false, WaveType wave = WaveType::Sine)
+      : note(n), octave(oct), duration(dur), is_rest(rest), wave_type(wave) {}
 
   /**
    * @brief 周波数を取得
@@ -577,6 +599,286 @@ struct NoteData {
     return MusicUtil::noteToFrequency(note, octave);
   }
 };
+
+/**
+ * @brief 固定長音符シーケンス（constexpr対応）
+ *
+ * std::arrayベースの固定長コンテナで、完全にconstexpr変数として保存可能。
+ * MMLパーサーから返され、コンパイル時定数として使用できる。
+ */
+class FixedNoteSequence {
+ public:
+  static constexpr size_t MAX_NOTES = 256;  // 最大音符数
+
+  /**
+   * @brief デフォルトコンストラクタ
+   */
+  constexpr FixedNoteSequence() : size_(0), notes_{} {}
+
+  /**
+   * @brief 音符を追加
+   * @param note 音符データ
+   * @return 追加に成功したらtrue
+   */
+  constexpr bool push_back(const NoteData& note) {
+    if (size_ >= MAX_NOTES) return false;
+    notes_[size_++] = note;
+    return true;
+  }
+
+  /**
+   * @brief 音符数を取得
+   * @return 音符数
+   */
+  constexpr size_t size() const { return size_; }
+
+  /**
+   * @brief 空かどうか
+   * @return 空ならtrue
+   */
+  constexpr bool empty() const { return size_ == 0; }
+
+  /**
+   * @brief インデックスアクセス
+   * @param index インデックス
+   * @return 音符データへの参照
+   */
+  constexpr const NoteData& operator[](size_t index) const { return notes_[index]; }
+
+  /**
+   * @brief データへのポインタを取得
+   * @return データの先頭ポインタ
+   */
+  constexpr const NoteData* data() const { return notes_.data(); }
+
+  /**
+   * @brief イテレータの開始位置
+   */
+  constexpr const NoteData* begin() const { return notes_.data(); }
+
+  /**
+   * @brief イテレータの終了位置
+   */
+  constexpr const NoteData* end() const { return notes_.data() + size_; }
+
+ private:
+  size_t size_;
+  std::array<NoteData, MAX_NOTES> notes_;
+};
+
+/**
+ * @brief MML（Music Macro Language）パーサー
+ *
+ * MML文字列を解析してNoteDataのリストに変換します。
+ * C++20のconstexprに対応しており、コンパイル時にMMLをパースできます。
+ *
+ * サポートするMML記法:
+ * - c, d, e, f, g, a, b: ドレミファソラシ
+ * - +, #: シャープ（半音上げる）
+ * - -: フラット（半音下げる）
+ * - 数字: 音符の長さ（1=全音符、2=2分音符、4=4分音符、8=8分音符など）
+ * - o数字: オクターブ指定（o4など）
+ * - r: 休符
+ * - l数字: デフォルトの音符長を設定
+ * - t数字: テンポ（BPM）を設定
+ * - @数字: 音色を設定（0=サイン波、1=矩形波、2=ノコギリ波）
+ * - .: 付点音符（音符の長さを1.5倍に）
+ * - <: オクターブを1つ下げる
+ * - >: オクターブを1つ上げる
+ *
+ * 例: "t120 o4 l4 cdefgab >c"
+ */
+class MMLParser {
+ public:
+  /**
+   * @brief MML文字列を解析（constexpr対応）
+   * @param mml MML文字列
+   * @return 音符データのリスト（固定長配列）
+   */
+  static constexpr FixedNoteSequence parse(const std::string& mml) {
+    FixedNoteSequence result;
+
+    // デフォルト値
+    float bpm = 120.0f;
+    int default_length = 4;  // 4分音符
+    int octave = 4;
+    WaveType wave_type = WaveType::Sine;
+
+    size_t i = 0;
+    while (i < mml.length()) {
+      char c = constexpr_tolower(mml[i]);
+
+      // 空白はスキップ
+      if (constexpr_isspace(c)) {
+        i++;
+        continue;
+      }
+
+      // テンポ設定 (t120など)
+      if (c == 't') {
+        i++;
+        int tempo = parseNumber(mml, i);
+        if (tempo > 0) bpm = static_cast<float>(tempo);
+        continue;
+      }
+
+      // デフォルト音符長設定 (l4など)
+      if (c == 'l') {
+        i++;
+        int length = parseNumber(mml, i);
+        if (length > 0) default_length = length;
+        continue;
+      }
+
+      // オクターブ設定 (o4など)
+      if (c == 'o') {
+        i++;
+        int oct = parseNumber(mml, i);
+        if (oct >= 0 && oct <= 8) octave = oct;
+        continue;
+      }
+
+      // 音色設定 (@0など)
+      if (c == '@') {
+        i++;
+        int wave = parseNumber(mml, i);
+        if (wave == 0) wave_type = WaveType::Sine;
+        else if (wave == 1) wave_type = WaveType::Square;
+        else if (wave == 2) wave_type = WaveType::Sawtooth;
+        continue;
+      }
+
+      // オクターブ上げ
+      if (c == '>') {
+        if (octave < 8) octave++;
+        i++;
+        continue;
+      }
+
+      // オクターブ下げ
+      if (c == '<') {
+        if (octave > 0) octave--;
+        i++;
+        continue;
+      }
+
+      // 休符 (r4など)
+      if (c == 'r') {
+        i++;
+        int length = default_length;
+        if (i < mml.length() && constexpr_isdigit(mml[i])) {
+          length = parseNumber(mml, i);
+        }
+        bool dotted = false;
+        if (i < mml.length() && mml[i] == '.') {
+          dotted = true;
+          i++;
+        }
+        float duration = MusicUtil::noteDuration(bpm, length, dotted);
+        result.push_back(NoteData(Note::C, 0, duration, true, wave_type));
+        continue;
+      }
+
+      // 音符 (c4, d+8など)
+      if (c >= 'a' && c <= 'g') {
+        Note note = charToNote(c);
+        i++;
+
+        // シャープ/フラット
+        if (i < mml.length() && (mml[i] == '+' || mml[i] == '#')) {
+          note = static_cast<Note>((static_cast<int>(note) + 1) % 12);
+          i++;
+        } else if (i < mml.length() && mml[i] == '-') {
+          note = static_cast<Note>((static_cast<int>(note) + 11) % 12);
+          i++;
+        }
+
+        // 音符の長さ
+        int length = default_length;
+        if (i < mml.length() && constexpr_isdigit(mml[i])) {
+          length = parseNumber(mml, i);
+        }
+
+        // 付点音符
+        bool dotted = false;
+        if (i < mml.length() && mml[i] == '.') {
+          dotted = true;
+          i++;
+        }
+
+        float duration = MusicUtil::noteDuration(bpm, length, dotted);
+        result.push_back(NoteData(note, octave, duration, false, wave_type));
+        continue;
+      }
+
+      // 未知の文字はスキップ
+      i++;
+    }
+
+    return result;
+  }
+
+ private:
+  /**
+   * @brief constexpr版のtolower
+   */
+  static constexpr char constexpr_tolower(char c) {
+    return (c >= 'A' && c <= 'Z') ? c + ('a' - 'A') : c;
+  }
+
+  /**
+   * @brief constexpr版のisspace
+   */
+  static constexpr bool constexpr_isspace(char c) {
+    return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == '\v';
+  }
+
+  /**
+   * @brief constexpr版のisdigit
+   */
+  static constexpr bool constexpr_isdigit(char c) {
+    return c >= '0' && c <= '9';
+  }
+
+  /**
+   * @brief 文字を音階に変換
+   */
+  static constexpr Note charToNote(char c) {
+    switch (c) {
+      case 'c': return Note::C;
+      case 'd': return Note::D;
+      case 'e': return Note::E;
+      case 'f': return Note::F;
+      case 'g': return Note::G;
+      case 'a': return Note::A;
+      case 'b': return Note::B;
+      default: return Note::C;
+    }
+  }
+
+  /**
+   * @brief 文字列から数値を解析
+   */
+  static constexpr int parseNumber(const std::string& str, size_t& pos) {
+    int result = 0;
+    while (pos < str.length() && constexpr_isdigit(str[pos])) {
+      result = result * 10 + (str[pos] - '0');
+      pos++;
+    }
+    return result;
+  }
+};
+
+/**
+ * @brief MMLユーザー定義リテラル（constexpr対応）
+ *
+ * 使用例:
+ *   constexpr auto notes = "t120 o4 cdefgab"_mml;  // コンパイル時評価（完全なconstexpr）
+ *   auto notes = "t120 o4 cdefgab"_mml;            // 実行時評価も可能
+ */
+constexpr FixedNoteSequence operator""_mml(const char* str, size_t len) {
+  return MMLParser::parse(std::string(str, len));
+}
 
 /**
  * @brief シーケンサー
@@ -621,10 +923,12 @@ class Sequencer {
    * @param octave オクターブ
    * @param note_division 音符の分数（4 = 4分音符）
    * @param dotted 付点音符かどうか
+   * @param wave_type 音色（オシレーター）
    */
-  void addNote(Note note, int octave, int note_division, bool dotted = false) {
+  void addNote(Note note, int octave, int note_division, bool dotted = false,
+               WaveType wave_type = WaveType::Sine) {
     float duration = MusicUtil::noteDuration(bpm_, note_division, dotted);
-    sequence_.emplace_back(note, octave, duration);
+    sequence_.emplace_back(note, octave, duration, false, wave_type);
   }
 
   /**
@@ -634,8 +938,48 @@ class Sequencer {
    */
   void addRest(int note_division, bool dotted = false) {
     float duration = MusicUtil::noteDuration(bpm_, note_division, dotted);
-    // 周波数0で休符を表現
-    sequence_.emplace_back(Note::C, 0, duration);
+    // is_restフラグで休符を表現
+    sequence_.emplace_back(Note::C, 0, duration, true, WaveType::Sine);
+  }
+
+  /**
+   * @brief MMLから生成された音符シーケンスを設定（std::vector版）
+   * @param notes 音符データのリスト
+   */
+  void setSequence(std::vector<NoteData>&& notes) {
+    sequence_ = std::move(notes);
+  }
+
+  /**
+   * @brief MMLから生成された音符シーケンスを設定（std::vector版）
+   * @param notes 音符データのリスト
+   */
+  void setSequence(const std::vector<NoteData>& notes) {
+    sequence_ = notes;
+  }
+
+  /**
+   * @brief MMLから生成された音符シーケンスを設定（FixedNoteSequence版）
+   * @param notes 固定長音符シーケンス（constexpr対応）
+   */
+  void setSequence(const FixedNoteSequence& notes) {
+    sequence_.clear();
+    sequence_.reserve(notes.size());
+    for (const auto& note : notes) {
+      sequence_.push_back(note);
+    }
+  }
+
+  /**
+   * @brief 任意のコンテナから音符シーケンスを設定（std::span版）
+   * @param notes 音符データのスパン（配列、vector、FixedNoteSequenceなど）
+   */
+  void setSequence(std::span<const NoteData> notes) {
+    sequence_.clear();
+    sequence_.reserve(notes.size());
+    for (const auto& note : notes) {
+      sequence_.push_back(note);
+    }
   }
 
   /**
@@ -708,10 +1052,13 @@ class Sequencer {
     const NoteData& note_data = sequence_[current_note_index_];
 
     // 休符の場合は何もしない
-    if (note_data.octave == 0) {
+    if (note_data.is_rest) {
       synthesizer_->noteOff();
       return;
     }
+
+    // 音色を設定
+    synthesizer_->getOscillator().setWaveType(note_data.wave_type);
 
     // 音符を再生
     float frequency = note_data.getFrequency();
