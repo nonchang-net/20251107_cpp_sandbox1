@@ -174,11 +174,6 @@ class TestImpl3 final : public GameImpl {
   std::unique_ptr<Sequencer> sequencer_;
   WaveType ocillatorWaveType_ = WaveType::Sine;
 
-  // std::unique_ptr<SimpleSynthesizer> synthesizer1_;
-  // std::unique_ptr<Sequencer> sequencer1_;
-  // std::unique_ptr<SimpleSynthesizer> synthesizer2_;
-  // std::unique_ptr<Sequencer> sequencer2_;
-
   // float sequencer_vol_ = 0.8f;
 
   // BGMマネージャー
@@ -254,19 +249,47 @@ class TestImpl3 final : public GameImpl {
         }
 
         // サウンドエフェクトテスト（検討中）
-        case SDL_SCANCODE_SPACE: {
-          // Spaceキー: A4（440Hz）のテストトーン
-          synthesizer_->getOscillator().setWaveType(ocillatorWaveType_);
-          synthesizer_->noteOn(440.0f, 0.5f);
-          break;
-        }
-        // case SDL_SCANCODE_1: {
+        // case SDL_SCANCODE_SPACE: {
+        //   // Spaceキー: A4（440Hz）のテストトーン
+        //   synthesizer_->getOscillator().setWaveType(ocillatorWaveType_);
+        //   synthesizer_->noteOn(440.0f, 0.5f);
+        //   break;
+        // }
+        // case xxx: {
         //   // 1キー: C4（ド）
         //   float freq = MusicUtil::noteToFrequency(Note::C, 4);
         //   synthesizer_->getOscillator().setWaveType(ocillatorWaveType_);
         //   synthesizer_->noteOn(freq, 0.3f);
         //   break;
         // }
+
+        case SDL_SCANCODE_8: {
+          // ノイズ＋フィルターテスト1
+          synthesizer_->getOscillator().setWaveType(WaveType::Noise);
+          synthesizer_->enableFilter();
+
+          auto* filter = synthesizer_->getFilter();
+          filter->setType(BiquadFilterType::Lowpass);
+          filter->setFrequency(2000.0f);  // 2kHz以下のノイズのみ通過
+          filter->setQ(0.7f);
+
+          synthesizer_->noteOn(440.0f, 1.0f);  // フィルタリングされたノイズ
+          break;
+        }
+        
+        case SDL_SCANCODE_9: {
+          // ノイズ＋フィルターテスト2
+          synthesizer_->getOscillator().setWaveType(WaveType::Noise);
+          synthesizer_->enableFilter();
+
+          auto* filter = synthesizer_->getFilter();
+          filter->setType(BiquadFilterType::Highpass);
+          filter->setFrequency(5000.0f);  // 5kHz以上のみ通過
+          filter->setQ(1.5f);
+
+          synthesizer_->noteOn(440.0f, 0.1f);  // 短いハイハット風の音
+          break;
+        }
         
         case SDL_SCANCODE_O: {
           // オシレータ切り替え
@@ -315,16 +338,19 @@ class TestImpl3 final : public GameImpl {
           bgm_manager_.stop();
           break;
         }
-        case SDL_SCANCODE_6: {
-          // F6キー: 現在のBGMを一時停止
-          bgm_manager_.pause();
-          break;
-        }
-        case SDL_SCANCODE_7: {
-          // F7キー: 現在のBGMを再開
-          bgm_manager_.resume();
-          break;
-        }
+
+        // note: 以下は正常に動いてない可能性がありそうなので要調査
+        // case SDL_SCANCODE_6: {
+        //   // F6キー: 現在のBGMを一時停止
+        //   bgm_manager_.pause();
+        //   break;
+        // }
+        // case SDL_SCANCODE_7: {
+        //   // F7キー: 現在のBGMを再開
+        //   bgm_manager_.resume();
+        //   break;
+        // }
+
         case SDL_SCANCODE_LEFTBRACKET: {
           // [キー: BGMマスターボリュームを下げる
           bgm_master_volume_ -= 0.1f;

@@ -54,3 +54,6 @@
 #include "sequencer/sequencer.h"
 #include "sequencer/multi_track_sequencer.h"
 #include "sequencer/bgm_manager.h"
+
+// エフェクト
+#include "effect/biquad_filter.h"

@@ -14,6 +14,7 @@ namespace MySound {
 SimpleSynthesizer::SimpleSynthesizer(int sample_rate)
     : oscillator_(std::make_unique<Oscillator>(WaveType::Sine, DEFAULT_FREQUENCY)),
       envelope_(std::make_unique<Envelope>()),
+      filter_(nullptr),  // フィルターはデフォルトで無効
       stream_(nullptr),
       sample_rate_(sample_rate),
       current_sample_(0),
@@ -133,6 +134,32 @@ int SimpleSynthesizer::getSampleRate() const {
   return sample_rate_;
 }
 
+void SimpleSynthesizer::enableFilter() {
+  if (!filter_) {
+    filter_ = std::make_unique<BiquadFilter>(sample_rate_);
+    // デフォルト設定: Lowpass 1000Hz, Q=1.0
+    filter_->setType(BiquadFilterType::Lowpass);
+    filter_->setFrequency(1000.0f);
+    filter_->setQ(1.0f);
+    SYNTH_LOG("Filter enabled: Lowpass 1000Hz Q=1.0");
+  }
+}
+
+void SimpleSynthesizer::disableFilter() {
+  if (filter_) {
+    filter_.reset();
+    SYNTH_LOG("Filter disabled");
+  }
+}
+
+bool SimpleSynthesizer::isFilterEnabled() const {
+  return filter_ != nullptr;
+}
+
+BiquadFilter* SimpleSynthesizer::getFilter() {
+  return filter_.get();
+}
+
 void SDLCALL SimpleSynthesizer::audioCallback(void* userdata, SDL_AudioStream* stream,
                                                int additional_amount, int total_amount) {
   SimpleSynthesizer* synth = static_cast<SimpleSynthesizer*>(userdata);
@@ -179,6 +206,11 @@ void SimpleSynthesizer::generateSamples(float* samples, int num_samples) {
     // エンベロープとボリュームを適用
     // 最終ボリューム = 波形 × エンベロープ × ノートボリューム × マスターボリューム
     samples[i] = wave * envelope_value * note_volume_ * master_volume_;
+
+    // フィルター適用（有効な場合のみ）
+    if (filter_) {
+      samples[i] = filter_->process(samples[i]);
+    }
 
     // クリッピング防止
     if (samples[i] > 1.0f) samples[i] = 1.0f;

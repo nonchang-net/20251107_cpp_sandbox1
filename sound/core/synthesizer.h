@@ -4,9 +4,13 @@
 #include <memory>
 #include "oscillator.h"
 #include "envelope.h"
+#include "../effect/biquad_filter.h"
 #include "../sound_constants.h"
 
 namespace MySound {
+
+// 前方宣言
+class BiquadFilter;
 
 /**
  * @brief シンプルなシンセサイザー
@@ -79,6 +83,37 @@ class SimpleSynthesizer {
    */
   int getSampleRate() const;
 
+  /**
+   * @brief フィルターを有効化
+   *
+   * フィルターを有効化します。デフォルトはLowpassフィルター（1000Hz, Q=1.0）です。
+   * getFilter()でフィルターのパラメータを調整できます。
+   */
+  void enableFilter();
+
+  /**
+   * @brief フィルターを無効化
+   *
+   * フィルターを無効化します。無効化時は処理コストがほぼゼロになります。
+   */
+  void disableFilter();
+
+  /**
+   * @brief フィルターが有効かどうか
+   * @return フィルターが有効ならtrue
+   */
+  bool isFilterEnabled() const;
+
+  /**
+   * @brief フィルターを取得
+   *
+   * フィルターのパラメータを調整するためのアクセサ。
+   * フィルターが無効の場合はnullptrを返します。
+   *
+   * @return フィルターへのポインタ（無効時はnullptr）
+   */
+  BiquadFilter* getFilter();
+
  private:
   /**
    * @brief オーディオコールバック（静的メソッド）
@@ -103,9 +138,10 @@ class SimpleSynthesizer {
    */
   float getCurrentTime() const;
 
-  std::unique_ptr<Oscillator> oscillator_;  // オシレーター
-  std::unique_ptr<Envelope> envelope_;      // エンベロープ
-  SDL_AudioStream* stream_;                 // オーディオストリーム
+  std::unique_ptr<Oscillator> oscillator_;   // オシレーター
+  std::unique_ptr<Envelope> envelope_;       // エンベロープ
+  std::unique_ptr<BiquadFilter> filter_;     // Biquadフィルター（nullptrなら無効）
+  SDL_AudioStream* stream_;                  // オーディオストリーム
 
   int sample_rate_;       // サンプリングレート
   Uint64 current_sample_; // 現在のサンプル位置
