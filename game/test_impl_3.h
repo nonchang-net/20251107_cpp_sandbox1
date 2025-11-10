@@ -251,12 +251,12 @@ class TestImpl3 final : public GameImpl {
         }
 
         // サウンドエフェクトテスト（検討中）
-        // case SDL_SCANCODE_SPACE: {
-        //   // Spaceキー: A4（440Hz）のテストトーン
-        //   synthesizer_->getOscillator().setWaveType(ocillatorWaveType_);
-        //   synthesizer_->noteOn(440.0f, 0.5f);
-        //   break;
-        // }
+        case SDL_SCANCODE_SPACE: {
+          // Spaceキー: A4（440Hz）のテストトーン
+          synthesizer_->getOscillator().setWaveType(ocillatorWaveType_);
+          synthesizer_->noteOn(440.0f, 0.5f);
+          break;
+        }
         // case SDL_SCANCODE_1: {
         //   // 1キー: C4（ド）
         //   float freq = MusicUtil::noteToFrequency(Note::C, 4);
@@ -273,6 +273,9 @@ class TestImpl3 final : public GameImpl {
               break;
             case WaveType::Square:
               ocillatorWaveType_ = WaveType::Sawtooth;
+              break;
+            case WaveType::Sawtooth:
+              ocillatorWaveType_ = WaveType::Noise;
               break;
             default:
               ocillatorWaveType_ = WaveType::Sine;
