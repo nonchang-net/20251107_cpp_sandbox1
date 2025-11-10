@@ -177,6 +177,7 @@ class Envelope {
  *
  * 1つのオシレーターと1つのエンベロープを組み合わせて音を生成します。
  * SDL3のオーディオストリームを使用してリアルタイム再生します。
+ * コールバック方式でバックグラウンドスレッドから呼び出されます。
  */
 class SimpleSynthesizer {
  public:
@@ -192,27 +193,31 @@ class SimpleSynthesizer {
     oscillator_ = std::make_unique<Oscillator>(WaveType::Sine, 440.0f);
     envelope_ = std::make_unique<Envelope>(0.01f, 0.1f, 0.7f, 0.2f);
 
-    // オーディオストリームを初期化
+    // オーディオストリームを初期化（コールバック方式）
     SDL_AudioSpec spec;
     spec.channels = 1;           // モノラル
     spec.format = SDL_AUDIO_F32; // 32ビット浮動小数点
     spec.freq = sample_rate_;
 
+    // コールバック方式でオーディオストリームを開く
     stream_ = SDL_OpenAudioDeviceStream(
-        SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, nullptr, nullptr);
+        SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK,
+        &spec,
+        audioCallback,  // コールバック関数
+        this);          // ユーザーデータ（this）
 
     if (!stream_) {
       SDL_LogError(SDL_LOG_CATEGORY_AUDIO, "Failed to open audio device: %s", SDL_GetError());
       return;
     }
 
-    SDL_Log("Audio stream initialized: %p, sample_rate=%d", stream_, sample_rate_);
+    SDL_Log("Audio stream initialized (callback mode): %p, sample_rate=%d", stream_, sample_rate_);
 
     // オーディオデバイスを再開（デフォルトは一時停止状態）
     if (!SDL_ResumeAudioStreamDevice(stream_)) {
       SDL_LogError(SDL_LOG_CATEGORY_AUDIO, "Failed to resume audio device: %s", SDL_GetError());
     } else {
-      SDL_Log("Audio device resumed successfully");
+      SDL_Log("Audio device resumed successfully (callback mode)");
     }
   }
 
@@ -279,24 +284,12 @@ class SimpleSynthesizer {
 
   /**
    * @brief 更新（メインループから毎フレーム呼び出す）
+   *
+   * コールバック方式では、サンプル生成はバックグラウンドスレッドで自動的に行われるため、
+   * ここでは状態管理のみを行います。
    */
   void update() {
-    if (!stream_ || !is_playing_) return;
-
-    // バッファの状態を確認
-    int queued = SDL_GetAudioStreamQueued(stream_);
-    const int min_buffer_bytes = sample_rate_ * sizeof(float) / 2;  // 0.5秒分
-
-    if (queued < min_buffer_bytes) {
-      // バッファが少なくなったらサンプルを生成
-      const int samples_to_generate = 512;
-      float samples[samples_to_generate];
-      generateSamples(samples, samples_to_generate);
-
-      if (!SDL_PutAudioStreamData(stream_, samples, sizeof(samples))) {
-        SDL_LogError(SDL_LOG_CATEGORY_AUDIO, "Failed to put audio data: %s", SDL_GetError());
-      }
-    }
+    if (!is_playing_) return;
 
     // 自動ノートオフ（duration指定がある場合）
     if (gate_ && note_duration_ > 0.0f) {
@@ -318,6 +311,44 @@ class SimpleSynthesizer {
   }
 
  private:
+  /**
+   * @brief オーディオコールバック（静的関数、バックグラウンドスレッドから呼び出される）
+   * @param userdata SimpleSynthesizerのインスタンスポインタ
+   * @param stream オーディオストリーム
+   * @param additional_amount 追加で必要なバイト数
+   * @param total_amount 合計で必要なバイト数
+   */
+  static void SDLCALL audioCallback(void* userdata, SDL_AudioStream* stream,
+                                     int additional_amount, int total_amount) {
+    SimpleSynthesizer* synth = static_cast<SimpleSynthesizer*>(userdata);
+
+    // 再生中でない場合は無音を出力
+    if (!synth->is_playing_) {
+      // 無音データを送信
+      int samples_needed = additional_amount / sizeof(float);
+      if (samples_needed > 0) {
+        float* silence = new float[samples_needed];
+        SDL_memset(silence, 0, additional_amount);
+        SDL_PutAudioStreamData(stream, silence, additional_amount);
+        delete[] silence;
+      }
+      return;
+    }
+
+    // 必要なサンプル数を計算
+    int samples_needed = additional_amount / sizeof(float);
+    if (samples_needed <= 0) return;
+
+    // サンプルを生成
+    float* samples = new float[samples_needed];
+    synth->generateSamples(samples, samples_needed);
+
+    // ストリームにデータを送信
+    SDL_PutAudioStreamData(stream, samples, additional_amount);
+
+    delete[] samples;
+  }
+
   /**
    * @brief サンプルを生成
    * @param samples 出力バッファ
