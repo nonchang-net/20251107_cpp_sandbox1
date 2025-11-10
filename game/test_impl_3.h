@@ -153,6 +153,11 @@ class TestImpl3 final : public GameImpl {
   std::unique_ptr<Sequencer> sequencer_;
   WaveType ocillatorWaveType_ = WaveType::Sine;
 
+  std::unique_ptr<SimpleSynthesizer> synthesizer1_;
+  std::unique_ptr<Sequencer> sequencer1_;
+  std::unique_ptr<SimpleSynthesizer> synthesizer2_;
+  std::unique_ptr<Sequencer> sequencer2_;
+
 
  public:
   TestImpl3(SDL_Renderer* renderer)
@@ -172,13 +177,22 @@ class TestImpl3 final : public GameImpl {
 
     // サウンドシンセサイザーを初期化
     synthesizer_ = std::make_unique<SimpleSynthesizer>(44100);
-    sequencer_ = std::make_unique<Sequencer>(synthesizer_.get(), 120.0f);
-
-    // エンベロープを設定（ノイズ軽減のためAttackを長めに）
+    // エンベロープを設定
     synthesizer_->getEnvelope().setAttackTime(0.05f);   // 0.01→0.05に変更
     synthesizer_->getEnvelope().setDecayTime(0.1f);
     synthesizer_->getEnvelope().setSustainLevel(0.7f);  // 0.5→0.7に変更
     synthesizer_->getEnvelope().setReleaseTime(0.15f);  // 0.1→0.15に変更
+    sequencer_ = std::make_unique<Sequencer>(synthesizer_.get(), 120.0f);
+
+
+    // シンセx2初期化 和音テスト用
+    synthesizer1_ = std::make_unique<SimpleSynthesizer>(44100);
+    synthesizer1_->getEnvelope().setADSR(0.01f, 0.1f, 0.5f, 0.1f);
+    sequencer1_ = std::make_unique<Sequencer>(synthesizer1_.get(), 120.0f);
+
+    synthesizer2_ = std::make_unique<SimpleSynthesizer>(44100);
+    synthesizer2_->getEnvelope().setADSR(0.01f, 0.1f, 0.5f, 0.1f);
+    sequencer2_ = std::make_unique<Sequencer>(synthesizer2_.get(), 120.0f);
 
     // テクスチャ読み込み後にエンティティを初期化
     initializeEntities();
@@ -304,9 +318,17 @@ class TestImpl3 final : public GameImpl {
 
         case SDL_SCANCODE_RETURN: {
           // Enterキー: MMLでカエルの歌を再生（コンパイル時評価版）
-          sequencer_->clear();
-          sequencer_->setSequence(MMLPresets::frog_song);
-          sequencer_->play();
+          // sequencer_->clear();
+          // sequencer_->setSequence(MMLPresets::frog_song);
+
+          sequencer1_->clear();
+          sequencer2_->clear();
+          // sequencer1_->setSequence("t180 o3 l8 @1 cdefgfedc"_mml);
+          // sequencer2_->setSequence("t180 o4 l8 @2 edcdefgfe"_mml);
+          sequencer1_->setSequence("t180 o3 l8 @1 cc>c<cc>c<c<b-rb->b-<b-b-<b->cd"_mml);
+          sequencer2_->setSequence("t180 o4 l8 @2 edcdefggrgrgfgeg"_mml);
+          sequencer1_->play();
+          sequencer2_->play();
           break;
         }
         //   constexpr auto frog_song = "t120 o4 l4 @0 cdefedec"_mml;
@@ -382,6 +404,10 @@ class TestImpl3 final : public GameImpl {
     // サウンドシンセサイザーとシーケンサーを更新
     synthesizer_->update();
     sequencer_->update();
+    synthesizer1_->update();
+    sequencer1_->update();
+    synthesizer2_->update();
+    sequencer2_->update();
 
     SDL_RenderPresent(renderer_);
     return SDL_APP_CONTINUE;

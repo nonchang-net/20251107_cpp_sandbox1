@@ -94,6 +94,10 @@
     "ostream": "cpp",
     "stop_token": "cpp",
     "text_encoding": "cpp",
-    "thread": "cpp"
+    "thread": "cpp",
+    "forward_list": "cpp",
+    "iomanip": "cpp",
+    "sstream": "cpp",
+    "cinttypes": "cpp"
   }
 }

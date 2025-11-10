@@ -142,6 +142,16 @@ class Envelope {
   void setReleaseTime(float time) { release_time_ = time; }
 
   /**
+   * @brief ADSRをまとめて指定
+   */
+  void setADSR(float a, float d, float s, float r){
+    setAttackTime(a);
+    setDecayTime(d);
+    setSustainLevel(s);
+    setReleaseTime(r);
+  }
+
+  /**
    * @brief エンベロープの値を計算
    * @param time ノートオンからの経過時間（秒）
    * @param gate ゲート状態（true = ノートオン、false = ノートオフ）
