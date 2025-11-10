@@ -464,23 +464,40 @@ class TestImpl3 final : public GameImpl {
 
     // BGM1:
     {
-      auto bgm = std::make_unique<MultiTrackSequencer>(2);
+      auto bgm = std::make_unique<MultiTrackSequencer>(4);
       bgm->setMasterVolume(bgm_master_volume_);
       bgm->setLoop(true, -1);  // 無限ループ
       // bgm->setUpdateInterval(1); // 精度上げる時用のメモ(デフォルト15ms)
-      // track1:
+      // bgm->setUpdateInterval(80); // これは流石におかしい
+      // bgm->setUpdateIntervalNS(800000); // 変わってないか？ 上と同じになるはずが？
+      // bgm->setUpdateIntervalNS(166666); // これ桁変えてもよくわからんな？
+      // track1: base
       bgm->getSynthesizer(0)->getEnvelope().setADSR(0.01f, 0.1f, 0.5f, 0.1f);
       bgm->setTrackSequence(0,
-        "t180 o3 l8 @1 v8"_mml
+        "t180 o3 l8 @1 v6"_mml
         "cc>c<c c>c<c<b- rb->b-<b- b-<b->cd"_mml
         "aa>a<a a>a<a<a- ra->a-<a- a-<a->b-<b-"_mml
       );
-      // track2:
+      // track2: merody
       bgm->getSynthesizer(1)->getEnvelope().setADSR(0.01f, 0.1f, 0.5f, 0.1f);
       bgm->setTrackSequence(1,
-        "t180 o4 l8 @2 v10"_mml
+        "t180 o4 l8 @2 v7"_mml
         "edcd efrg rgrg fgeg"_mml
         "fefg ab-r>c rcrc< b-rb-r"_mml
+      );
+      // track3: noise snare
+      bgm->getSynthesizer(2)->getEnvelope().setADSR(0.01f, 0.05f, 0.2f, 0.3f);
+      bgm->setTrackSequence(2,
+        "t180 o4 l8 @3 v8"_mml
+        "rrcr rrgr rrcr rrcr"_mml
+        "rrcr rrgr rrcr rccc"_mml
+      );
+      // track4: kick
+      bgm->getSynthesizer(3)->getEnvelope().setADSR(0.0f, 0.05f, 0.1f, 0.01f);
+      bgm->setTrackSequence(3,
+        "t180 o1 l8 @1 v13"_mml
+        "frrr frrf rfrr ffrr"_mml
+        "frrr frrf rfrr ffrr"_mml
       );
       bgm_manager_.registerBGM("bgm1", std::move(bgm));
     }
@@ -521,7 +538,7 @@ class TestImpl3 final : public GameImpl {
       bgm->setMasterVolume(bgm_master_volume_);
       bgm->setLoop(true, -1);  // 無限ループ
       // bgm->setUpdateInterval(93); // BPM160の16分音符ms = 60/160/4*1000 = 93.75
-      bgm->setUpdateIntervalNS(93750); // → 体感の違いはないがこの指定が一番正確なはず。細かすぎるとCPU食うのでこの設定が落とし所として良さそう？
+      bgm->setUpdateIntervalNS(93750); // → 体感の違いはないがこの指定が一番正確なはず。細かすぎるとCPU食うのでこの設定が落とし所として良さそう？ → 今そもそもこのメソッド正常動作してない疑いがあるので要検証……。
       bgm->getSynthesizer(0)->getEnvelope().setADSR(0.01f, 0.1f, 0.5f, 0.1f);
       bgm->setTrackSequence(0,
         "t160 o3 l16 @1 v6"_mml
