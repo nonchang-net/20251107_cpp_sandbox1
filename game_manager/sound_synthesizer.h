@@ -5,6 +5,8 @@
 #include <cmath>
 #include <memory>
 #include <span>
+#include <string>
+#include <unordered_map>
 #include <vector>
 
 // デバッグログの有効化フラグ（0 = 無効、1 = 有効）
@@ -945,8 +947,8 @@ class Sequencer {
       : synthesizer_(synthesizer), bpm_(bpm), volume_(1.0f),
         current_note_index_(0), is_playing_(false), sequence_time_(0.0f),
         last_update_time_(0), loop_enabled_(false), loop_count_(-1),
-        current_loop_(0), timer_id_(0), update_interval_ms_(15) {
-    // デフォルト: 32分音符相当の精度（15ms間隔）
+        current_loop_(0), timer_id_(0), update_interval_ns_(15000000) {
+    // デフォルト: 32分音符相当の精度（15ms = 15,000,000ns間隔）
   }
 
   /**
@@ -957,19 +959,35 @@ class Sequencer {
   }
 
   /**
-   * @brief シーケンサーの更新間隔を設定（ミリ秒）
-   * @param interval_ms 更新間隔（ミリ秒）、小さいほど精度が高い
+   * @brief シーケンサーの更新間隔を設定（ナノ秒）
+   * @param interval_ns 更新間隔（ナノ秒）、小さいほど精度が高い
    */
-  void setUpdateInterval(Uint32 interval_ms) {
-    update_interval_ms_ = interval_ms;
+  void setUpdateIntervalNS(Uint64 interval_ns) {
+    update_interval_ns_ = interval_ns;
   }
 
   /**
-   * @brief シーケンサーの更新間隔を取得
+   * @brief シーケンサーの更新間隔を設定（ミリ秒、利便性のため）
+   * @param interval_ms 更新間隔（ミリ秒）
+   */
+  void setUpdateInterval(Uint32 interval_ms) {
+    update_interval_ns_ = static_cast<Uint64>(interval_ms) * 1000000;  // ms to ns
+  }
+
+  /**
+   * @brief シーケンサーの更新間隔を取得（ナノ秒）
+   * @return 更新間隔（ナノ秒）
+   */
+  Uint64 getUpdateIntervalNS() const {
+    return update_interval_ns_;
+  }
+
+  /**
+   * @brief シーケンサーの更新間隔を取得（ミリ秒）
    * @return 更新間隔（ミリ秒）
    */
   Uint32 getUpdateInterval() const {
-    return update_interval_ms_;
+    return static_cast<Uint32>(update_interval_ns_ / 1000000);  // ns to ms
   }
 
   /**
@@ -1142,13 +1160,13 @@ class Sequencer {
 
  private:
   /**
-   * @brief タイマーコールバック（静的関数）
+   * @brief タイマーコールバック（静的関数、SDL_AddTimerNS用）
    * @param userdata Sequencerインスタンスへのポインタ
    * @param timerID タイマーID
-   * @param interval タイマー間隔
+   * @param interval タイマー間隔（ナノ秒）
    * @return 次のタイマー間隔（0で停止）
    */
-  static Uint32 SDLCALL timerCallback(void* userdata, SDL_TimerID timerID, Uint32 interval) {
+  static Uint64 SDLCALL timerCallback(void* userdata, SDL_TimerID timerID, Uint64 interval) {
     Sequencer* sequencer = static_cast<Sequencer*>(userdata);
     if (sequencer) {
       sequencer->internalUpdate();
@@ -1163,7 +1181,7 @@ class Sequencer {
     if (timer_id_ != 0) {
       stopTimer();  // 既存のタイマーを停止
     }
-    timer_id_ = SDL_AddTimer(update_interval_ms_, timerCallback, this);
+    timer_id_ = SDL_AddTimerNS(update_interval_ns_, timerCallback, this);
     if (timer_id_ == 0) {
       SDL_LogError(SDL_LOG_CATEGORY_AUDIO, "Failed to create timer: %s", SDL_GetError());
     }
@@ -1275,7 +1293,350 @@ class Sequencer {
   int loop_count_;                         // ループ回数（-1=無限、0以上=指定回数）
   int current_loop_;                       // 現在のループ回数
   SDL_TimerID timer_id_;                   // タイマーID
-  Uint32 update_interval_ms_;              // 更新間隔（ミリ秒）
+  Uint64 update_interval_ns_;              // 更新間隔（ナノ秒）
+};
+
+/**
+ * @brief マルチトラックシーケンサー
+ *
+ * 1つの楽曲を複数トラック（パート）で構成する。
+ * 各トラックは独立したシンセサイザーとシーケンサーを持つ。
+ */
+class MultiTrackSequencer {
+ public:
+  /**
+   * @brief コンストラクタ
+   * @param track_count トラック数
+   * @param sample_rate サンプリングレート
+   * @param bpm BPM
+   */
+  explicit MultiTrackSequencer(size_t track_count, int sample_rate = 44100, float bpm = 120.0f)
+      : track_count_(track_count), bpm_(bpm), master_volume_(1.0f), is_paused_(false) {
+    // トラック数分のシンセサイザーとシーケンサーを生成
+    for (size_t i = 0; i < track_count; ++i) {
+      auto synth = std::make_unique<SimpleSynthesizer>(sample_rate);
+      auto seq = std::make_unique<Sequencer>(synth.get(), bpm);
+
+      synthesizers_.push_back(std::move(synth));
+      sequencers_.push_back(std::move(seq));
+    }
+  }
+
+  /**
+   * @brief トラック数を取得
+   * @return トラック数
+   */
+  size_t getTrackCount() const { return track_count_; }
+
+  /**
+   * @brief 指定トラックのシンセサイザーを取得
+   * @param track_index トラックインデックス
+   * @return シンセサイザーへのポインタ（範囲外の場合はnullptr）
+   */
+  SimpleSynthesizer* getSynthesizer(size_t track_index) {
+    if (track_index >= track_count_) return nullptr;
+    return synthesizers_[track_index].get();
+  }
+
+  /**
+   * @brief 指定トラックのシーケンサーを取得
+   * @param track_index トラックインデックス
+   * @return シーケンサーへのポインタ（範囲外の場合はnullptr）
+   */
+  Sequencer* getSequencer(size_t track_index) {
+    if (track_index >= track_count_) return nullptr;
+    return sequencers_[track_index].get();
+  }
+
+  /**
+   * @brief 指定トラックにシーケンスを設定
+   * @param track_index トラックインデックス
+   * @param notes 音符シーケンス
+   */
+  void setTrackSequence(size_t track_index, const FixedNoteSequence& notes) {
+    if (track_index >= track_count_) return;
+    sequencers_[track_index]->clear();
+    sequencers_[track_index]->setSequence(notes);
+  }
+
+  /**
+   * @brief 指定トラックにシーケンスを設定（std::vector版）
+   * @param track_index トラックインデックス
+   * @param notes 音符シーケンス
+   */
+  void setTrackSequence(size_t track_index, const std::vector<NoteData>& notes) {
+    if (track_index >= track_count_) return;
+    sequencers_[track_index]->clear();
+    sequencers_[track_index]->setSequence(notes);
+  }
+
+  /**
+   * @brief マスターボリュームを設定（全トラックに適用）
+   * @param volume ボリューム（0.0〜1.0）
+   */
+  void setMasterVolume(float volume) {
+    master_volume_ = SDL_clamp(volume, 0.0f, 1.0f);
+    for (auto& synth : synthesizers_) {
+      synth->setVolume(master_volume_);
+    }
+  }
+
+  /**
+   * @brief マスターボリュームを取得
+   * @return ボリューム（0.0〜1.0）
+   */
+  float getMasterVolume() const { return master_volume_; }
+
+  /**
+   * @brief ループ設定（全トラックに適用）
+   * @param enabled ループを有効にするか
+   * @param count ループ回数（-1で無限ループ）
+   */
+  void setLoop(bool enabled, int count = -1) {
+    for (auto& seq : sequencers_) {
+      seq->setLoop(enabled, count);
+    }
+  }
+
+  /**
+   * @brief シーケンサーの更新間隔を設定（ナノ秒）
+   * @param interval_ns 更新間隔（ナノ秒）、小さいほど精度が高い
+   */
+  void setUpdateIntervalNS(Uint64 interval_ns) {
+    for (auto& seq : sequencers_) {
+      seq->setUpdateIntervalNS(interval_ns);
+    }
+  }
+
+  /**
+   * @brief シーケンサーの更新間隔を設定（ミリ秒、利便性のため）
+   * @param interval_ms 更新間隔（ミリ秒）
+   */
+  void setUpdateInterval(Uint32 interval_ms) {
+    for (auto& seq : sequencers_) {
+      seq->setUpdateInterval(interval_ms);
+    }
+  }
+
+  /**
+   * @brief 全トラックを再生開始
+   */
+  void play() {
+    is_paused_ = false;
+    for (auto& seq : sequencers_) {
+      seq->play();
+    }
+  }
+
+  /**
+   * @brief 全トラックを停止
+   */
+  void stop() {
+    is_paused_ = false;
+    for (auto& seq : sequencers_) {
+      seq->stop();
+    }
+  }
+
+  /**
+   * @brief 全トラックを一時停止
+   */
+  void pause() {
+    if (!is_paused_) {
+      is_paused_ = true;
+      for (auto& seq : sequencers_) {
+        seq->stop();  // 現在はstopで代用（将来的にpause実装）
+      }
+    }
+  }
+
+  /**
+   * @brief 全トラックを再開
+   */
+  void resume() {
+    if (is_paused_) {
+      is_paused_ = false;
+      for (auto& seq : sequencers_) {
+        seq->play();  // 現在はplayで代用（将来的にresume実装）
+      }
+    }
+  }
+
+  /**
+   * @brief 再生中かどうか
+   * @return 少なくとも1トラックが再生中ならtrue
+   */
+  bool isPlaying() const {
+    for (const auto& seq : sequencers_) {
+      if (seq->isPlaying()) return true;
+    }
+    return false;
+  }
+
+  /**
+   * @brief 一時停止中かどうか
+   * @return 一時停止中ならtrue
+   */
+  bool isPaused() const { return is_paused_; }
+
+  /**
+   * @brief 更新（メインループから毎フレーム呼び出す）
+   */
+  void update() {
+    for (auto& synth : synthesizers_) {
+      synth->update();
+    }
+    for (auto& seq : sequencers_) {
+      seq->update();
+    }
+  }
+
+ private:
+  size_t track_count_;
+  float bpm_;
+  float master_volume_;
+  bool is_paused_;
+  std::vector<std::unique_ptr<SimpleSynthesizer>> synthesizers_;
+  std::vector<std::unique_ptr<Sequencer>> sequencers_;
+};
+
+/**
+ * @brief BGMマネージャー
+ *
+ * 複数の楽曲（MultiTrackSequencer）を管理し、切り替える。
+ */
+class BGMManager {
+ public:
+  /**
+   * @brief BGMを登録
+   * @param id BGM ID
+   * @param bgm マルチトラックシーケンサー
+   */
+  void registerBGM(const std::string& id, std::unique_ptr<MultiTrackSequencer> bgm) {
+    bgm_map_[id] = std::move(bgm);
+  }
+
+  /**
+   * @brief BGMを取得
+   * @param id BGM ID
+   * @return マルチトラックシーケンサーへのポインタ（存在しない場合はnullptr）
+   */
+  MultiTrackSequencer* getBGM(const std::string& id) {
+    auto it = bgm_map_.find(id);
+    if (it != bgm_map_.end()) {
+      return it->second.get();
+    }
+    return nullptr;
+  }
+
+  /**
+   * @brief BGMを再生
+   * @param id BGM ID
+   * @return 成功したらtrue
+   */
+  bool play(const std::string& id) {
+    auto* bgm = getBGM(id);
+    if (!bgm) return false;
+
+    // 現在再生中のBGMを停止
+    if (!current_bgm_id_.empty() && current_bgm_id_ != id) {
+      stop();
+    }
+
+    current_bgm_id_ = id;
+    bgm->play();
+    return true;
+  }
+
+  /**
+   * @brief 現在のBGMを停止
+   */
+  void stop() {
+    if (!current_bgm_id_.empty()) {
+      auto* bgm = getBGM(current_bgm_id_);
+      if (bgm) {
+        bgm->stop();
+      }
+      current_bgm_id_.clear();
+    }
+  }
+
+  /**
+   * @brief 現在のBGMを一時停止
+   */
+  void pause() {
+    if (!current_bgm_id_.empty()) {
+      auto* bgm = getBGM(current_bgm_id_);
+      if (bgm) {
+        bgm->pause();
+      }
+    }
+  }
+
+  /**
+   * @brief 現在のBGMを再開
+   */
+  void resume() {
+    if (!current_bgm_id_.empty()) {
+      auto* bgm = getBGM(current_bgm_id_);
+      if (bgm) {
+        bgm->resume();
+      }
+    }
+  }
+
+  /**
+   * @brief 全BGMのマスターボリュームを設定
+   * @param volume ボリューム（0.0〜1.0）
+   */
+  void setMasterVolume(float volume) {
+    master_volume_ = SDL_clamp(volume, 0.0f, 1.0f);
+    for (auto& [id, bgm] : bgm_map_) {
+      bgm->setMasterVolume(master_volume_);
+    }
+  }
+
+  /**
+   * @brief マスターボリュームを取得
+   * @return ボリューム（0.0〜1.0）
+   */
+  float getMasterVolume() const { return master_volume_; }
+
+  /**
+   * @brief 現在再生中のBGM IDを取得
+   * @return BGM ID（再生中でない場合は空文字列）
+   */
+  const std::string& getCurrentBGMId() const { return current_bgm_id_; }
+
+  /**
+   * @brief BGMが再生中かどうか
+   * @return 再生中ならtrue
+   */
+  bool isPlaying() const {
+    if (current_bgm_id_.empty()) return false;
+    auto it = bgm_map_.find(current_bgm_id_);
+    if (it != bgm_map_.end()) {
+      return it->second->isPlaying();
+    }
+    return false;
+  }
+
+  /**
+   * @brief 更新（メインループから毎フレーム呼び出す）
+   */
+  void update() {
+    if (!current_bgm_id_.empty()) {
+      auto* bgm = getBGM(current_bgm_id_);
+      if (bgm) {
+        bgm->update();
+      }
+    }
+  }
+
+ private:
+  std::unordered_map<std::string, std::unique_ptr<MultiTrackSequencer>> bgm_map_;
+  std::string current_bgm_id_;
+  float master_volume_ = 1.0f;
 };
 
 }  // namespace MyGame

@@ -98,6 +98,12 @@
     "forward_list": "cpp",
     "iomanip": "cpp",
     "sstream": "cpp",
-    "cinttypes": "cpp"
+    "cinttypes": "cpp",
+    "hash_map": "cpp",
+    "map": "cpp",
+    "set": "cpp",
+    "unordered_set": "cpp",
+    "__tree": "cpp",
+    "list": "cpp"
   }
 }

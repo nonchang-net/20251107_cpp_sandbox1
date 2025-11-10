@@ -16,16 +16,32 @@ namespace MyGame {
 
 // MMLパーサーはconstexpr対応（コンパイル時評価）
 // FixedNoteSequence（固定長配列）を使用することで、完全なconstexpr変数として保存可能
-namespace MMLPresets {
-  constexpr auto frog_song = "t120 o4 l4 @0 cdefedec"_mml;
-  constexpr auto oscillator_demo = "t140 o4 l8 @1 cdefgab>c r4 @2 <bagfedc"_mml;
-  constexpr auto volume_demo = "t120 o4 l8 @0 v15 cccc v12 cccc v8 cccc v4 cccc v0 cccc"_mml;
 
-  // コンパイル時評価の確認（static_assertで強制的にコンパイル時評価）
-  static_assert(frog_song.size() == 8, "Frog song should have 8 notes");
-  static_assert(oscillator_demo.size() == 16, "Oscillator demo should have 16 notes (including rest)");
-  static_assert(volume_demo.size() == 20, "Volume demo should have 20 notes");
-}
+// 初期テスト用MML曲データ
+// namespace MMLPresets {
+//   constexpr auto frog_song = "t120 o4 l4 @0 cdefedec"_mml;
+//   constexpr auto oscillator_demo = "t140 o4 l8 @1 cdefgab>c r4 @2 <bagfedc"_mml;
+//   constexpr auto volume_demo = "t120 o4 l8 @0 v15 cccc v12 cccc v8 cccc v4 cccc v0 cccc"_mml;
+
+//   // マルチトラック用MMLプリセット
+//   // BGM1: 2トラック構成（メロディー + ベース）
+//   constexpr auto bgm1_melody = "t140 o5 l8 @0 v12 cdefg4 agfe d4.r4 efga b4>cd<b a4.r4"_mml;
+//   constexpr auto bgm1_bass = "t140 o3 l4 @1 v10 c2c2 g2g2 f2a2 d2d2"_mml;
+
+//   // BGM2: 3トラック構成（メロディー + 和音1 + 和音2）
+//   constexpr auto bgm2_melody = "t120 o5 l8 @0 v15 gagf e4d4 c4<b4 a2>c2"_mml;
+//   constexpr auto bgm2_chord1 = "t120 o4 l4 @1 v10 e2c2 g2e2"_mml;
+//   constexpr auto bgm2_chord2 = "t120 o3 l4 @2 v10 c2a2 e2c2"_mml;
+
+//   // BGM3: 2トラック構成（リズミカルな曲）
+//   constexpr auto bgm3_lead = "t160 o4 l16 @1 v14 ccccdddd eeeegggg aaaab4 >c4<b4a4"_mml;
+//   constexpr auto bgm3_backing = "t160 o3 l8 @2 v11 c4c4d4d4 e4e4g4g4 a4a4b4b4 >c4<b4a4g4"_mml;
+
+//   // コンパイル時評価の確認（static_assertでコンパイル時評価されてることを確認）
+//   static_assert(frog_song.size() == 8, "Frog song should have 8 notes");
+//   static_assert(oscillator_demo.size() == 16, "Oscillator demo should have 16 notes (including rest)");
+//   static_assert(volume_demo.size() == 20, "Volume demo should have 20 notes");
+// }
 
 /**
  * @brief TestImpl3で使用するエンティティ状態フラグ
@@ -155,12 +171,16 @@ class TestImpl3 final : public GameImpl {
   std::unique_ptr<Sequencer> sequencer_;
   WaveType ocillatorWaveType_ = WaveType::Sine;
 
-  std::unique_ptr<SimpleSynthesizer> synthesizer1_;
-  std::unique_ptr<Sequencer> sequencer1_;
-  std::unique_ptr<SimpleSynthesizer> synthesizer2_;
-  std::unique_ptr<Sequencer> sequencer2_;
+  // std::unique_ptr<SimpleSynthesizer> synthesizer1_;
+  // std::unique_ptr<Sequencer> sequencer1_;
+  // std::unique_ptr<SimpleSynthesizer> synthesizer2_;
+  // std::unique_ptr<Sequencer> sequencer2_;
 
-  float sequencer_vol_ = 0.8f;
+  // float sequencer_vol_ = 0.8f;
+
+  // BGMマネージャー
+  BGMManager bgm_manager_;
+  float bgm_master_volume_ = 0.6f;
 
 
  public:
@@ -179,38 +199,12 @@ class TestImpl3 final : public GameImpl {
       texture_ = texture;
     }
 
-    // サウンドシンセサイザーを初期化
+    // サウンドエフェクト用シンセサイザーを初期化
     synthesizer_ = std::make_unique<SimpleSynthesizer>(44100);
-    // エンベロープを設定
-    synthesizer_->getEnvelope().setAttackTime(0.05f);   // 0.01→0.05に変更
-    synthesizer_->getEnvelope().setDecayTime(0.1f);
-    synthesizer_->getEnvelope().setSustainLevel(0.7f);  // 0.5→0.7に変更
-    synthesizer_->getEnvelope().setReleaseTime(0.15f);  // 0.1→0.15に変更
     sequencer_ = std::make_unique<Sequencer>(synthesizer_.get(), 120.0f);
 
-
-    // シンセx2初期化 和音テスト用
-    synthesizer1_ = std::make_unique<SimpleSynthesizer>(44100);
-    synthesizer1_->setVolume(0.5f);
-    synthesizer1_->getEnvelope().setADSR(0.01f, 0.1f, 0.5f, 0.1f);
-    sequencer1_ = std::make_unique<Sequencer>(synthesizer1_.get(), 120.0f);
-
-    synthesizer2_ = std::make_unique<SimpleSynthesizer>(44100);
-    synthesizer2_->setVolume(0.5f);
-    synthesizer2_->getEnvelope().setADSR(0.01f, 0.1f, 0.5f, 0.1f);
-    sequencer2_ = std::make_unique<Sequencer>(synthesizer2_.get(), 120.0f);
-
-    // test1: 更新インターバルをデフォルト15msから3msにしてみる→あまり違いはわからない
-    // sequencer1_->setUpdateInterval(3);
-    // sequencer2_->setUpdateInterval(3);
-
-    // test2: 60msにすると明らかに発音タイミングがガクつくのがわかる。結論、15msで気になるときはintervalを下げれる実装なのでokと考える（BPMや曲の内容次第？ SDL Timerで十分だろうと判断。簡易MML機能に厳密な精度を求めても仕方がない）
-    // sequencer1_->setUpdateInterval(60);
-    // sequencer2_->setUpdateInterval(60);
-
-    sequencer_->setVolume(sequencer_vol_);
-    sequencer1_->setVolume(sequencer_vol_);
-    sequencer2_->setVolume(sequencer_vol_);
+    // BGMマネージャーの初期化
+    initializeBGMManager();
 
     // テクスチャ読み込み後にエンティティを初期化
     initializeEntities();
@@ -255,69 +249,21 @@ class TestImpl3 final : public GameImpl {
           SDL_PushEvent(&request_event);
           break;
         }
-        // サウンドテスト用キー
-        case SDL_SCANCODE_SPACE: {
-          // Spaceキー: A4（440Hz）のテストトーン
-          synthesizer_->getOscillator().setWaveType(ocillatorWaveType_);
-          synthesizer_->noteOn(440.0f, 0.5f);
-          break;
-        }
-        case SDL_SCANCODE_1: {
-          // 1キー: C4（ド）
-          float freq = MusicUtil::noteToFrequency(Note::C, 4);
-          synthesizer_->getOscillator().setWaveType(ocillatorWaveType_);
-          synthesizer_->noteOn(freq, 0.3f);
-          break;
-        }
-        case SDL_SCANCODE_2: {
-          // 2キー: D4（レ）
-          float freq = MusicUtil::noteToFrequency(Note::D, 4);
-          synthesizer_->getOscillator().setWaveType(ocillatorWaveType_);
-          synthesizer_->noteOn(freq, 0.3f);
-          break;
-        }
-        case SDL_SCANCODE_3: {
-          // 3キー: E4（ミ）
-          float freq = MusicUtil::noteToFrequency(Note::E, 4);
-          synthesizer_->getOscillator().setWaveType(ocillatorWaveType_);
-          synthesizer_->noteOn(freq, 0.3f);
-          break;
-        }
-        case SDL_SCANCODE_4: {
-          // 4キー: F4（ファ）
-          float freq = MusicUtil::noteToFrequency(Note::F, 4);
-          synthesizer_->getOscillator().setWaveType(ocillatorWaveType_);
-          synthesizer_->noteOn(freq, 0.3f);
-          break;
-        }
-        case SDL_SCANCODE_5: {
-          // 5キー: G4（ソ）
-          float freq = MusicUtil::noteToFrequency(Note::G, 4);
-          synthesizer_->getOscillator().setWaveType(ocillatorWaveType_);
-          synthesizer_->noteOn(freq, 0.3f);
-          break;
-        }
-        case SDL_SCANCODE_6: {
-          // 6キー: A4（ラ）
-          float freq = MusicUtil::noteToFrequency(Note::A, 4);
-          synthesizer_->getOscillator().setWaveType(ocillatorWaveType_);
-          synthesizer_->noteOn(freq, 0.3f);
-          break;
-        }
-        case SDL_SCANCODE_7: {
-          // 7キー: B4（シ）
-          float freq = MusicUtil::noteToFrequency(Note::B, 4);
-          synthesizer_->getOscillator().setWaveType(ocillatorWaveType_);
-          synthesizer_->noteOn(freq, 0.3f);
-          break;
-        }
-        case SDL_SCANCODE_8: {
-          // 8キー: C5（高いド）
-          float freq = MusicUtil::noteToFrequency(Note::C, 5);
-          synthesizer_->getOscillator().setWaveType(ocillatorWaveType_);
-          synthesizer_->noteOn(freq, 0.3f);
-          break;
-        }
+
+        // サウンドエフェクトテスト（検討中）
+        // case SDL_SCANCODE_SPACE: {
+        //   // Spaceキー: A4（440Hz）のテストトーン
+        //   synthesizer_->getOscillator().setWaveType(ocillatorWaveType_);
+        //   synthesizer_->noteOn(440.0f, 0.5f);
+        //   break;
+        // }
+        // case SDL_SCANCODE_1: {
+        //   // 1キー: C4（ド）
+        //   float freq = MusicUtil::noteToFrequency(Note::C, 4);
+        //   synthesizer_->getOscillator().setWaveType(ocillatorWaveType_);
+        //   synthesizer_->noteOn(freq, 0.3f);
+        //   break;
+        // }
         
         case SDL_SCANCODE_O: {
           // オシレータ切り替え
@@ -334,92 +280,59 @@ class TestImpl3 final : public GameImpl {
           break;
         }
 
-        case SDL_SCANCODE_RETURN: {
-          // Enterキー: BGM風多重演奏（無限ループ）
-          sequencer1_->clear();
-          sequencer2_->clear();
-
-          // BGM用に無限ループを設定
-          sequencer1_->setLoop(true, -1);  // 無限ループ
-          sequencer2_->setLoop(true, -1);  // 無限ループ
-
-          sequencer1_->setSequence(
-            "t180 o3 l8 @1"_mml
-            "cc>c<c c>c<c<b- rb->b-<b- b-<b->cd"_mml
-            "aa>a<a a>a<a<a- ra->a-<a- a-<a->b-<b-"_mml
-          );
-          sequencer2_->setSequence(
-            "t180 o4 l8 @2"_mml
-            "edcd efrg rgrg fgeg"_mml
-            "fefg ab-r>c rcrc< b-rb-r"_mml
-          );
-          sequencer1_->play();
-          sequencer2_->play();
-          break;
-        }
-        //   constexpr auto frog_song = "t120 o4 l4 @0 cdefedec"_mml;
-        //  constexpr auto oscillator_demo = "t140 o4 l8 @1 cdefgab>c r4 @2 <bagfedc"_mml;
-
-        case SDL_SCANCODE_M: {
-          // Mキー: MMLでオシレーター変更デモ（コンパイル時評価版）
-          sequencer_->clear();
-          sequencer_->setLoop(false);  // ループ無効
-          sequencer_->setSequence("t140 o4 l8 @1 cdefgab>c r4 @2 <bagfedc"_mml);
-          sequencer_->play();
-          break;
-        }
-        case SDL_SCANCODE_V: {
-          // Vキー: ボリュームデモ（v15→v12→v8→v4→v0でフェードアウト）
-          sequencer_->clear();
-          sequencer_->setLoop(false);  // ループ無効
-          sequencer_->setSequence(MMLPresets::volume_demo);
-          sequencer_->play();
-          break;
-        }
-        case SDL_SCANCODE_L: {
-          // Lキー: 無限ループ再生デモ
-          sequencer_->clear();
-          sequencer_->setLoop(true, -1);  // 無限ループ
-          sequencer_->setSequence(MMLPresets::frog_song);
-          sequencer_->play();
-          break;
-        }
-        case SDL_SCANCODE_K: {
-          // Kキー: 3回ループ再生デモ
-          sequencer_->clear();
-          sequencer_->setLoop(true, 3);  // 3回ループ（合計4回再生）
-          sequencer_->setSequence(MMLPresets::frog_song);
-          sequencer_->play();
-          break;
-        }
         case SDL_SCANCODE_0: {
-          // 0キー: シーケンス停止
+          // 0キー: シンセとBGM一括停止
           sequencer_->stop();
           synthesizer_->noteOff();
-          sequencer1_->stop();
-          synthesizer1_->noteOff();
-          sequencer2_->stop();
-          synthesizer2_->noteOff();
+          bgm_manager_.stop();
           break;
         }
 
-        case SDL_SCANCODE_PERIOD:
-          sequencer_vol_ += 0.1f;
-          if(sequencer_vol_ > 1.0f) sequencer_vol_ = 1.0f;
-          sequencer_->setVolume(sequencer_vol_);
-          sequencer1_->setVolume(sequencer_vol_);
-          sequencer2_->setVolume(sequencer_vol_);
+        // BGMマネージャーのテスト用キー
+        case SDL_SCANCODE_1: {
+          // F1キー: BGM1を再生（2トラック: メロディー + ベース）
+          bgm_manager_.play("bgm1");
           break;
-
-        case SDL_SCANCODE_COMMA:
-          sequencer_vol_ -= 0.1f;
-          if(sequencer_vol_ < 0) sequencer_vol_ = 0;
-          sequencer_->setVolume(sequencer_vol_);
-          sequencer1_->setVolume(sequencer_vol_);
-          sequencer2_->setVolume(sequencer_vol_);
+        }
+        case SDL_SCANCODE_2: {
+          // F2キー: BGM2を再生（3トラック: メロディー + 和音1 + 和音2）
+          bgm_manager_.play("bgm2");
           break;
-
-
+        }
+        case SDL_SCANCODE_3: {
+          // F3キー: BGM3を再生（2トラック: リズミカルな曲）
+          bgm_manager_.play("bgm3");
+          break;
+        }
+        case SDL_SCANCODE_5: {
+          // F5キー: 現在のBGMを停止
+          bgm_manager_.stop();
+          break;
+        }
+        case SDL_SCANCODE_6: {
+          // F6キー: 現在のBGMを一時停止
+          bgm_manager_.pause();
+          break;
+        }
+        case SDL_SCANCODE_7: {
+          // F7キー: 現在のBGMを再開
+          bgm_manager_.resume();
+          break;
+        }
+        case SDL_SCANCODE_LEFTBRACKET: {
+          // [キー: BGMマスターボリュームを下げる
+          bgm_master_volume_ -= 0.1f;
+          if (bgm_master_volume_ < 0.0f) bgm_master_volume_ = 0.0f;
+          bgm_manager_.setMasterVolume(bgm_master_volume_);
+          break;
+        }
+        case SDL_SCANCODE_RIGHTBRACKET: {
+          // ]キー: BGMマスターボリュームを上げる
+          bgm_master_volume_ += 0.1f;
+          if (bgm_master_volume_ > 1.0f) bgm_master_volume_ = 1.0f;
+          bgm_manager_.setMasterVolume(bgm_master_volume_);
+          break;
+        }
 
         default:
           break;
@@ -472,16 +385,14 @@ class TestImpl3 final : public GameImpl {
                  entity_manager_.getEntityCount());
     SDL_RenderDebugText(renderer_, 10, 10, buffer);
     SDL_RenderDebugText(renderer_, 10, 20, "R: Reset, C: Cleanup, Q: Quit");
-    SDL_RenderDebugText(renderer_, 10, 30, "Space: Test, 1-8: Scale, O: Wave");
-    SDL_RenderDebugText(renderer_, 10, 40, "Enter: Melody, M: Osc, V: Vol, L: Loop, K: 3xLoop");
+    SDL_RenderDebugText(renderer_, 10, 30, "1-3: BGM1-3, 5: Stop, 6: Pause, 7: Resume, []: Vol");
 
     // サウンドシンセサイザーとシーケンサーを更新
     synthesizer_->update();
     sequencer_->update();
-    synthesizer1_->update();
-    sequencer1_->update();
-    synthesizer2_->update();
-    sequencer2_->update();
+
+    // BGMマネージャーを更新
+    bgm_manager_.update();
 
     SDL_RenderPresent(renderer_);
     return SDL_APP_CONTINUE;
@@ -541,6 +452,96 @@ class TestImpl3 final : public GameImpl {
 
     // 速度を設定
     velocity->setVelocity(vx, vy);
+  }
+
+  /**
+   * @brief BGMマネージャーを初期化
+   */
+  void initializeBGMManager() {
+
+    // BGM1:
+    {
+      auto bgm = std::make_unique<MultiTrackSequencer>(2);
+      bgm->setMasterVolume(bgm_master_volume_);
+      bgm->setLoop(true, -1);  // 無限ループ
+      // bgm->setUpdateInterval(1); // 精度上げる時用のメモ(デフォルト15ms)
+      // track1:
+      bgm->getSynthesizer(0)->getEnvelope().setADSR(0.01f, 0.1f, 0.5f, 0.1f);
+      bgm->setTrackSequence(0,
+        "t180 o3 l8 @1 v8"_mml
+        "cc>c<c c>c<c<b- rb->b-<b- b-<b->cd"_mml
+        "aa>a<a a>a<a<a- ra->a-<a- a-<a->b-<b-"_mml
+      );
+      // track2:
+      bgm->getSynthesizer(1)->getEnvelope().setADSR(0.01f, 0.1f, 0.5f, 0.1f);
+      bgm->setTrackSequence(1,
+        "t180 o4 l8 @2 v10"_mml
+        "edcd efrg rgrg fgeg"_mml
+        "fefg ab-r>c rcrc< b-rb-r"_mml
+      );
+      bgm_manager_.registerBGM("bgm1", std::move(bgm));
+    }
+
+    // BGM2:
+    {
+      auto bgm = std::make_unique<MultiTrackSequencer>(3);
+      bgm->setMasterVolume(bgm_master_volume_);
+      bgm->setLoop(true, -1);  // 無限ループ
+      // bgm->setUpdateInterval(1); // 精度上げる時用のメモ(デフォルト15ms)
+      // track1:
+      bgm->getSynthesizer(0)->getEnvelope().setADSR(0.01f, 0.1f, 0.5f, 0.1f);
+      bgm->setTrackSequence(0,
+        "t120 o3 l8 @1 v8"_mml
+        "e4. d8  c4. f8  e4. c8  e4. r8 "_mml
+        // "aa>a<a a>a<a<a- ra->a-<a- a-<a->b-<b-"_mml
+      );
+      // track2:
+      bgm->getSynthesizer(1)->getEnvelope().setADSR(0.01f, 0.1f, 0.5f, 0.1f);
+      bgm->setTrackSequence(1,
+        "t120 o4 l8 @2 v5"_mml
+        "c2 c2 c2. g4 "_mml
+        // "fefg ab-r>c rcrc< b-rb-r"_mml
+      );
+      // track3:
+      bgm->getSynthesizer(2)->getEnvelope().setADSR(0.01f, 0.1f, 0.5f, 0.1f);
+      bgm->setTrackSequence(2,
+        "t120 o3 l8 @0 v10"_mml
+        "cgec cgec cgec cgec "_mml
+        // "fefg ab-r>c rcrc< b-rb-r"_mml
+      );
+      bgm_manager_.registerBGM("bgm2", std::move(bgm));
+    }
+
+    // BGM3:
+    {
+      auto bgm = std::make_unique<MultiTrackSequencer>(3);
+      bgm->setMasterVolume(bgm_master_volume_);
+      bgm->setLoop(true, -1);  // 無限ループ
+      // bgm->setUpdateInterval(93); // BPM160の16分音符ms = 60/160/4*1000 = 93.75
+      bgm->setUpdateIntervalNS(93750); // → 体感の違いはないがこの指定が一番正確なはず。細かすぎるとCPU食うのでこの設定が落とし所として良さそう？
+      bgm->getSynthesizer(0)->getEnvelope().setADSR(0.01f, 0.1f, 0.5f, 0.1f);
+      bgm->setTrackSequence(0,
+        "t160 o3 l16 @1 v6"_mml
+        "ababaeab > cdcdedc<b ababaeab > cdcdefef"_mml
+        // "aa>a<a a>a<a<a- ra->a-<a- a-<a->b-<b-"_mml
+      );
+      // track2:
+      bgm->getSynthesizer(1)->getEnvelope().setADSR(0.01f, 0.1f, 0.5f, 0.1f);
+      bgm->setTrackSequence(1,
+        "t160 o3 l16 @2 v7"_mml
+        "erererer frfrfrfr erererer drdrdrdr "_mml
+        // "fefg ab-r>c rcrc< b-rb-r"_mml
+      );
+      // track3:
+      bgm->getSynthesizer(2)->getEnvelope().setADSR(0.01f, 0.1f, 0.5f, 0.1f);
+      bgm->setTrackSequence(2,
+        "t160 o3 l16 @2 v7"_mml
+        // "cgec cgec cgec cgec "_mml
+        "crcrcrcr drdrdrdr crcrcrcr < brbrbrbr >"_mml
+      );
+      bgm_manager_.registerBGM("bgm3", std::move(bgm));
+    }
+
   }
 
   void initializeEntities() {
