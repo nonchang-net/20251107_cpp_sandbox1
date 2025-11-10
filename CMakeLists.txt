@@ -11,10 +11,23 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)  # IntelliSenseのためにcompile_command
 
 add_subdirectory(vendored/SDL EXCLUDE_FROM_ALL)
 
+# sound library (Phase 2: core classes + sequencer)
+set(SOUND_SOURCES
+    sound/core/oscillator.cc
+    sound/core/envelope.cc
+    sound/core/synthesizer.cc
+    sound/sequencer/sequencer.cc
+    sound/sequencer/multi_track_sequencer.cc
+    sound/sequencer/bgm_manager.cc
+)
+add_library(sound ${SOUND_SOURCES})
+target_link_libraries(sound PRIVATE SDL3::SDL3)
+target_include_directories(sound PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
 # game_manager
 # note: GameManagerはテンプレートクラスになったため、ヘッダオンリーライブラリです
 add_library(game_manager game_manager/draw_helper.cc)
-target_link_libraries(game_manager PRIVATE SDL3::SDL3)
+target_link_libraries(game_manager PRIVATE SDL3::SDL3 sound)
 
 # game
 # note: file globは追加のたびにconfigureが必要とのことなので保留
@@ -28,4 +41,4 @@ target_link_libraries(games PRIVATE SDL3::SDL3)
 
 # main
 add_executable(main game.cc)
-target_link_libraries(main PRIVATE SDL3::SDL3 game_manager games)
+target_link_libraries(main PRIVATE SDL3::SDL3 sound game_manager games)

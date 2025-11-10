@@ -10,9 +10,12 @@
 #include "../game_manager/game_impl.h"
 #include "../game_manager/utilities/fps_counter.h"
 #include "../game_manager/utilities/texture_loader.h"
-#include "../game_manager/sound_synthesizer.h"
+#include "../sound/sound.h"
 
 namespace MyGame {
+
+// サウンドライブラリ（MySound）を使用
+using namespace MySound;
 
 // MMLパーサーはconstexpr対応（コンパイル時評価）
 // FixedNoteSequence（固定長配列）を使用することで、完全なconstexpr変数として保存可能
