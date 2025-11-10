@@ -200,6 +200,13 @@ class TestImpl3 final : public GameImpl {
     synthesizer2_->getEnvelope().setADSR(0.01f, 0.1f, 0.5f, 0.1f);
     sequencer2_ = std::make_unique<Sequencer>(synthesizer2_.get(), 120.0f);
 
+    // test1: 更新インターバルをデフォルト15msから3msにしてみる→あまり違いはわからない
+    // sequencer1_->setUpdateInterval(3);
+    // sequencer2_->setUpdateInterval(3);
+
+    // test2: 60msにすると明らかに発音タイミングがガクつくのがわかる。結論、15msで気になるときはintervalを下げれる実装なのでokと考える（BPMや曲の内容次第？ SDL Timerで十分だろうと判断。簡易MML機能に厳密な精度を求めても仕方がない）
+    // sequencer1_->setUpdateInterval(60);
+    // sequencer2_->setUpdateInterval(60);
 
     sequencer_->setVolume(sequencer_vol_);
     sequencer1_->setVolume(sequencer_vol_);

@@ -945,7 +945,32 @@ class Sequencer {
       : synthesizer_(synthesizer), bpm_(bpm), volume_(1.0f),
         current_note_index_(0), is_playing_(false), sequence_time_(0.0f),
         last_update_time_(0), loop_enabled_(false), loop_count_(-1),
-        current_loop_(0) {}
+        current_loop_(0), timer_id_(0), update_interval_ms_(15) {
+    // デフォルト: 32分音符相当の精度（15ms間隔）
+  }
+
+  /**
+   * @brief デストラクタ
+   */
+  ~Sequencer() {
+    stopTimer();
+  }
+
+  /**
+   * @brief シーケンサーの更新間隔を設定（ミリ秒）
+   * @param interval_ms 更新間隔（ミリ秒）、小さいほど精度が高い
+   */
+  void setUpdateInterval(Uint32 interval_ms) {
+    update_interval_ms_ = interval_ms;
+  }
+
+  /**
+   * @brief シーケンサーの更新間隔を取得
+   * @return 更新間隔（ミリ秒）
+   */
+  Uint32 getUpdateInterval() const {
+    return update_interval_ms_;
+  }
 
   /**
    * @brief BPMを設定
@@ -1084,6 +1109,9 @@ class Sequencer {
 
     // 最初の音符を再生
     playCurrentNote();
+
+    // 高精度タイマーを開始
+    startTimer();
   }
 
   /**
@@ -1092,6 +1120,7 @@ class Sequencer {
   void stop() {
     is_playing_ = false;
     synthesizer_->noteOff();
+    stopTimer();
   }
 
   /**
@@ -1102,8 +1131,58 @@ class Sequencer {
 
   /**
    * @brief 更新（メインループから毎フレーム呼び出す）
+   *
+   * 注: 実際の音符進行処理は内部タイマーで行われるため、
+   * このメソッドは状態チェック程度の軽量処理のみ行う
    */
   void update() {
+    // タイマーベースの更新に移行したため、このメソッドは空にする
+    // 必要に応じて状態確認などの軽量処理のみ行う
+  }
+
+ private:
+  /**
+   * @brief タイマーコールバック（静的関数）
+   * @param userdata Sequencerインスタンスへのポインタ
+   * @param timerID タイマーID
+   * @param interval タイマー間隔
+   * @return 次のタイマー間隔（0で停止）
+   */
+  static Uint32 SDLCALL timerCallback(void* userdata, SDL_TimerID timerID, Uint32 interval) {
+    Sequencer* sequencer = static_cast<Sequencer*>(userdata);
+    if (sequencer) {
+      sequencer->internalUpdate();
+    }
+    return interval;  // 同じ間隔で継続
+  }
+
+  /**
+   * @brief タイマーを開始
+   */
+  void startTimer() {
+    if (timer_id_ != 0) {
+      stopTimer();  // 既存のタイマーを停止
+    }
+    timer_id_ = SDL_AddTimer(update_interval_ms_, timerCallback, this);
+    if (timer_id_ == 0) {
+      SDL_LogError(SDL_LOG_CATEGORY_AUDIO, "Failed to create timer: %s", SDL_GetError());
+    }
+  }
+
+  /**
+   * @brief タイマーを停止
+   */
+  void stopTimer() {
+    if (timer_id_ != 0) {
+      SDL_RemoveTimer(timer_id_);
+      timer_id_ = 0;
+    }
+  }
+
+  /**
+   * @brief 内部更新処理（タイマーから呼ばれる）
+   */
+  void internalUpdate() {
     if (!is_playing_ || sequence_.empty()) return;
 
     // 経過時間を計算
@@ -1131,7 +1210,6 @@ class Sequencer {
     }
   }
 
- private:
   /**
    * @brief シーケンス終了時の処理
    */
@@ -1196,6 +1274,8 @@ class Sequencer {
   bool loop_enabled_;                      // ループ有効フラグ
   int loop_count_;                         // ループ回数（-1=無限、0以上=指定回数）
   int current_loop_;                       // 現在のループ回数
+  SDL_TimerID timer_id_;                   // タイマーID
+  Uint32 update_interval_ms_;              // 更新間隔（ミリ秒）
 };
 
 }  // namespace MyGame
