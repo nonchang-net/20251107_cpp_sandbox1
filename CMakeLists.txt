@@ -11,7 +11,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)  # IntelliSenseのためにcompile_command
 
 add_subdirectory(vendored/SDL EXCLUDE_FROM_ALL)
 
-# sound library (Phase 2: core classes + sequencer + effect)
+# sound library (Phase 2: core classes + sequencer + effect + mixer)
 set(SOUND_SOURCES
     sound/core/oscillator.cc
     sound/core/envelope.cc
@@ -21,6 +21,7 @@ set(SOUND_SOURCES
     sound/sequencer/bgm_manager.cc
     sound/effect/biquad_filter.cc
     sound/effect/volume_modulation.cc
+    sound/mixer/audio_mixer.cc
 )
 add_library(sound ${SOUND_SOURCES})
 target_link_libraries(sound PRIVATE SDL3::SDL3)

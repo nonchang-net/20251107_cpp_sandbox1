@@ -522,6 +522,7 @@ class TestImpl3 final : public GameImpl {
         "edcd efrg rgrg fgeg"_mml
         "fefg ab-r>c rcrc< b-rb-r"_mml
       );
+    
       // track3: noise snare
       bgm->getSynthesizer(2)->getEnvelope().setADSR(0.01f, 0.05f, 0.2f, 0.3f);
       bgm->setTrackSequence(2,
@@ -536,6 +537,8 @@ class TestImpl3 final : public GameImpl {
         "frrr frrf rfrr ffrr"_mml
         "frrr frrf rfrr ffrr"_mml
       );
+
+      // register
       bgm_manager_.registerBGM("bgm1", std::move(bgm));
     }
 
@@ -568,6 +571,12 @@ class TestImpl3 final : public GameImpl {
         "cgg cgg cgg cgg "_mml
         "cgg caa dff cgg "_mml
       );
+
+      // add effect
+      auto volume_mod = std::make_unique<VolumeModulation>(44100);
+      volume_mod->setWaveType(WaveType::Sine);
+      bgm->getMixer()->addEffect(std::move(volume_mod));
+
       bgm_manager_.registerBGM("bgm2", std::move(bgm));
     }
 

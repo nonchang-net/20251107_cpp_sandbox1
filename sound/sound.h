@@ -59,3 +59,6 @@
 #include "effect/audio_effect.h"
 #include "effect/biquad_filter.h"
 #include "effect/volume_modulation.h"
+
+// ミキサー
+#include "mixer/audio_mixer.h"

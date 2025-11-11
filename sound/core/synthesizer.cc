@@ -11,7 +11,7 @@
 
 namespace MySound {
 
-SimpleSynthesizer::SimpleSynthesizer(int sample_rate)
+SimpleSynthesizer::SimpleSynthesizer(int sample_rate, bool enable_stream)
     : oscillator_(std::make_unique<Oscillator>(WaveType::Sine, DEFAULT_FREQUENCY)),
       envelope_(std::make_unique<Envelope>()),
       effects_(),            // エフェクトチェーンは空で初期化
@@ -27,31 +27,36 @@ SimpleSynthesizer::SimpleSynthesizer(int sample_rate)
       note_duration_(0.0f),
       debug_first_samples_(false) {
 
-  // オーディオストリームを初期化（コールバック方式）
-  SDL_AudioSpec spec;
-  spec.channels = 1;           // モノラル
-  spec.format = SDL_AUDIO_F32; // 32ビット浮動小数点
-  spec.freq = sample_rate_;
+  // ストリームありモードの場合のみオーディオストリームを初期化
+  if (enable_stream) {
+    // オーディオストリームを初期化（コールバック方式）
+    SDL_AudioSpec spec;
+    spec.channels = 1;           // モノラル
+    spec.format = SDL_AUDIO_F32; // 32ビット浮動小数点
+    spec.freq = sample_rate_;
 
-  // コールバック方式でオーディオストリームを開く
-  stream_ = SDL_OpenAudioDeviceStream(
-      SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK,
-      &spec,
-      audioCallback,  // コールバック関数
-      this);          // ユーザーデータ（this）
+    // コールバック方式でオーディオストリームを開く
+    stream_ = SDL_OpenAudioDeviceStream(
+        SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK,
+        &spec,
+        audioCallback,  // コールバック関数
+        this);          // ユーザーデータ（this）
 
-  if (!stream_) {
-    SDL_LogError(SDL_LOG_CATEGORY_AUDIO, "Failed to open audio device: %s", SDL_GetError());
-    return;
-  }
+    if (!stream_) {
+      SDL_LogError(SDL_LOG_CATEGORY_AUDIO, "Failed to open audio device: %s", SDL_GetError());
+      return;
+    }
 
-  SYNTH_LOG("Audio stream initialized (callback mode): %p, sample_rate=%d", stream_, sample_rate_);
+    SYNTH_LOG("Audio stream initialized (callback mode): %p, sample_rate=%d", stream_, sample_rate_);
 
-  // オーディオデバイスを再開（デフォルトは一時停止状態）
-  if (!SDL_ResumeAudioStreamDevice(stream_)) {
-    SDL_LogError(SDL_LOG_CATEGORY_AUDIO, "Failed to resume audio device: %s", SDL_GetError());
+    // オーディオデバイスを再開（デフォルトは一時停止状態）
+    if (!SDL_ResumeAudioStreamDevice(stream_)) {
+      SDL_LogError(SDL_LOG_CATEGORY_AUDIO, "Failed to resume audio device: %s", SDL_GetError());
+    } else {
+      SYNTH_LOG("Audio device resumed successfully (callback mode)");
+    }
   } else {
-    SYNTH_LOG("Audio device resumed successfully (callback mode)");
+    SYNTH_LOG("SimpleSynthesizer created in stream-less mode (sample generation only)");
   }
 }
 
@@ -78,11 +83,6 @@ float SimpleSynthesizer::getVolume() const {
 }
 
 void SimpleSynthesizer::noteOn(float frequency, float duration, float volume) {
-  if (!stream_) {
-    SDL_LogError(SDL_LOG_CATEGORY_AUDIO, "Audio stream not initialized");
-    return;
-  }
-
   oscillator_->setFrequency(frequency);
   current_sample_ = 0;  // サンプル位置をリセット
   note_on_time_ = 0.0f;

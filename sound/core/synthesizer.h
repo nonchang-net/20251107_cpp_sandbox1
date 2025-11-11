@@ -21,8 +21,9 @@ class SimpleSynthesizer {
   /**
    * @brief コンストラクタ
    * @param sample_rate サンプリングレート
+   * @param enable_stream オーディオストリームを有効にするか（falseの場合はサンプル生成のみ）
    */
-  explicit SimpleSynthesizer(int sample_rate = DEFAULT_SAMPLE_RATE);
+  explicit SimpleSynthesizer(int sample_rate = DEFAULT_SAMPLE_RATE, bool enable_stream = true);
 
   /**
    * @brief デストラクタ
@@ -122,6 +123,18 @@ class SimpleSynthesizer {
    */
   size_t getEffectCount() const;
 
+  /**
+   * @brief サンプルを生成（ミキサー用）
+   *
+   * この関数は主にAudioMixerから呼ばれることを想定しています。
+   * ストリームなしモードで作成されたSynthesizerの場合、
+   * この関数を明示的に呼び出してサンプルを取得します。
+   *
+   * @param samples 出力バッファ
+   * @param num_samples サンプル数
+   */
+  void generateSamples(float* samples, int num_samples);
+
  private:
   /**
    * @brief オーディオコールバック（静的メソッド）
@@ -132,13 +145,6 @@ class SimpleSynthesizer {
    */
   static void SDLCALL audioCallback(void* userdata, SDL_AudioStream* stream,
                                     int additional_amount, int total_amount);
-
-  /**
-   * @brief サンプルを生成
-   * @param samples 出力バッファ
-   * @param num_samples サンプル数
-   */
-  void generateSamples(float* samples, int num_samples);
 
   /**
    * @brief 現在の時刻を取得（秒）

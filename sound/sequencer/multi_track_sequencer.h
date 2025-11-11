@@ -4,6 +4,8 @@
 #include <vector>
 #include "sequencer.h"
 #include "../core/synthesizer.h"
+#include "../mixer/audio_mixer.h"
+#include "../effect/audio_effect.h"
 #include "../types/note.h"
 #include "../utilities/fixed_note_sequence.h"
 
@@ -127,6 +129,45 @@ class MultiTrackSequencer {
    */
   void update();
 
+  /**
+   * @brief ミキサーにエフェクトを追加
+   *
+   * 全トラックのサブミックス後に適用されるマスターエフェクトを追加します。
+   * エフェクトの所有権はミキサーに移動します。
+   * 追加したエフェクトは追加順に直列に処理されます。
+   *
+   * @param effect 追加するエフェクト（所有権を移動）
+   *
+   * 使用例:
+   * @code
+   * // マスターリバーブを追加
+   * auto reverb = std::make_unique<ReverbEffect>(44100);
+   * multi_track->addMasterEffect(std::move(reverb));
+   *
+   * // マスターコンプレッサーを追加
+   * auto compressor = std::make_unique<Compressor>(44100);
+   * multi_track->addMasterEffect(std::move(compressor));
+   * @endcode
+   */
+  void addMasterEffect(std::unique_ptr<AudioEffect> effect);
+
+  /**
+   * @brief 全てのマスターエフェクトを削除
+   */
+  void clearMasterEffects();
+
+  /**
+   * @brief マスターエフェクト数を取得
+   * @return 現在設定されているマスターエフェクトの数
+   */
+  size_t getMasterEffectCount() const;
+
+  /**
+   * @brief ミキサーを取得
+   * @return ミキサーへのポインタ
+   */
+  AudioMixer* getMixer();
+
  private:
   size_t track_count_;
   float bpm_;
@@ -134,6 +175,7 @@ class MultiTrackSequencer {
   bool is_paused_;
   std::vector<std::unique_ptr<SimpleSynthesizer>> synthesizers_;
   std::vector<std::unique_ptr<Sequencer>> sequencers_;
+  std::unique_ptr<AudioMixer> mixer_;  // オーディオミキサー
 };
 
 }  // namespace MySound
