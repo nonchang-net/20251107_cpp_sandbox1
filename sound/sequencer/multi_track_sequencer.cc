@@ -3,12 +3,13 @@
 
 namespace MySound {
 
-MultiTrackSequencer::MultiTrackSequencer(size_t track_count, int sample_rate, float bpm)
+MultiTrackSequencer::MultiTrackSequencer(size_t track_count, int sample_rate, float bpm, bool enable_stream)
     : track_count_(track_count),
+      sample_rate_(sample_rate),
       bpm_(bpm),
       master_volume_(1.0f),
       is_paused_(false),
-      mixer_(std::make_unique<AudioMixer>(sample_rate)) {
+      mixer_(std::make_unique<AudioMixer>(sample_rate, enable_stream)) {
 
   // トラック数分のシンセサイザーとシーケンサーを生成
   // 注: シンセサイザーはストリームなしモード（enable_stream=false）で作成
@@ -136,6 +137,17 @@ size_t MultiTrackSequencer::getMasterEffectCount() const {
 
 AudioMixer* MultiTrackSequencer::getMixer() {
   return mixer_.get();
+}
+
+void MultiTrackSequencer::generateSamples(float* samples, int num_samples) {
+  // ミキサーに処理を委譲
+  // ミキサーが各シンセサイザーからサンプルを取得し、
+  // ミキシング、マスターボリューム、エフェクト、クリッピングを適用する
+  mixer_->generateSamples(samples, num_samples);
+}
+
+int MultiTrackSequencer::getSampleRate() const {
+  return sample_rate_;
 }
 
 }  // namespace MySound

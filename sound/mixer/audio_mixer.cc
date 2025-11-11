@@ -11,38 +11,43 @@
 
 namespace MySound {
 
-AudioMixer::AudioMixer(int sample_rate)
+AudioMixer::AudioMixer(int sample_rate, bool enable_stream)
     : synthesizers_(),
       effects_(),
       stream_(nullptr),
       sample_rate_(sample_rate),
       master_volume_(DEFAULT_VOLUME) {
 
-  // オーディオストリームを初期化（コールバック方式）
-  SDL_AudioSpec spec;
-  spec.channels = 1;           // モノラル
-  spec.format = SDL_AUDIO_F32; // 32ビット浮動小数点
-  spec.freq = sample_rate_;
+  // ストリームありモードの場合のみ、オーディオストリームを初期化
+  if (enable_stream) {
+    // オーディオストリームを初期化（コールバック方式）
+    SDL_AudioSpec spec;
+    spec.channels = 1;           // モノラル
+    spec.format = SDL_AUDIO_F32; // 32ビット浮動小数点
+    spec.freq = sample_rate_;
 
-  // コールバック方式でオーディオストリームを開く
-  stream_ = SDL_OpenAudioDeviceStream(
-      SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK,
-      &spec,
-      audioCallback,  // コールバック関数
-      this);          // ユーザーデータ（this）
+    // コールバック方式でオーディオストリームを開く
+    stream_ = SDL_OpenAudioDeviceStream(
+        SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK,
+        &spec,
+        audioCallback,  // コールバック関数
+        this);          // ユーザーデータ（this）
 
-  if (!stream_) {
-    SDL_LogError(SDL_LOG_CATEGORY_AUDIO, "AudioMixer: Failed to open audio device: %s", SDL_GetError());
-    return;
-  }
+    if (!stream_) {
+      SDL_LogError(SDL_LOG_CATEGORY_AUDIO, "AudioMixer: Failed to open audio device: %s", SDL_GetError());
+      return;
+    }
 
-  MIXER_LOG("AudioMixer: stream initialized (callback mode): %p, sample_rate=%d", stream_, sample_rate_);
+    MIXER_LOG("AudioMixer: stream initialized (callback mode): %p, sample_rate=%d", stream_, sample_rate_);
 
-  // オーディオデバイスを再開（デフォルトは一時停止状態）
-  if (!SDL_ResumeAudioStreamDevice(stream_)) {
-    SDL_LogError(SDL_LOG_CATEGORY_AUDIO, "AudioMixer: Failed to resume audio device: %s", SDL_GetError());
+    // オーディオデバイスを再開（デフォルトは一時停止状態）
+    if (!SDL_ResumeAudioStreamDevice(stream_)) {
+      SDL_LogError(SDL_LOG_CATEGORY_AUDIO, "AudioMixer: Failed to resume audio device: %s", SDL_GetError());
+    } else {
+      MIXER_LOG("AudioMixer: device resumed successfully");
+    }
   } else {
-    MIXER_LOG("AudioMixer: device resumed successfully");
+    MIXER_LOG("AudioMixer: created in stream-less mode (mixing only)");
   }
 }
 
@@ -94,6 +99,10 @@ float AudioMixer::getVolume() const {
 
 int AudioMixer::getSampleRate() const {
   return sample_rate_;
+}
+
+void AudioMixer::generateSamples(float* samples, int num_samples) {
+  mixSamples(samples, num_samples);
 }
 
 void SDLCALL AudioMixer::audioCallback(void* userdata, SDL_AudioStream* stream,

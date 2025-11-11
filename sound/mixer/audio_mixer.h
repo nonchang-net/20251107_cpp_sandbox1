@@ -40,8 +40,9 @@ class AudioMixer {
   /**
    * @brief コンストラクタ
    * @param sample_rate サンプリングレート
+   * @param enable_stream オーディオストリームを有効にするか（falseの場合はミキシングのみ）
    */
-  explicit AudioMixer(int sample_rate = DEFAULT_SAMPLE_RATE);
+  explicit AudioMixer(int sample_rate = DEFAULT_SAMPLE_RATE, bool enable_stream = true);
 
   /**
    * @brief デストラクタ
@@ -112,6 +113,17 @@ class AudioMixer {
    * @return サンプリングレート
    */
   int getSampleRate() const;
+
+  /**
+   * @brief サンプルを生成（ストリームなしモード用）
+   *
+   * ストリームなしモードで作成されたAudioMixerの場合、
+   * この関数を明示的に呼び出してミックスされたサンプルを取得します。
+   *
+   * @param samples 出力バッファ
+   * @param num_samples サンプル数
+   */
+  void generateSamples(float* samples, int num_samples);
 
  private:
   /**

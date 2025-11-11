@@ -327,18 +327,19 @@ class TestImpl3 final : public GameImpl {
 
         // BGMマネージャーのテスト用キー
         case SDL_SCANCODE_1: {
-          // F1キー: BGM1を再生（2トラック: メロディー + ベース）
           bgm_manager_.play("bgm1");
+          // 1キー: BGM1を再生（クロスフェード）
+          // bgm_manager_.playWithCrossfade("bgm1", 0.5f);
           break;
         }
         case SDL_SCANCODE_2: {
-          // F2キー: BGM2を再生（3トラック: メロディー + 和音1 + 和音2）
-          bgm_manager_.play("bgm2");
+          // 2キー: BGM2を再生（クロスフェード）
+          bgm_manager_.playWithCrossfade("bgm2", 0.5f);
           break;
         }
         case SDL_SCANCODE_3: {
-          // F3キー: BGM3を再生（2トラック: リズミカルな曲）
-          bgm_manager_.play("bgm3");
+          // 3キー: BGM3を再生（クロスフェード）
+          bgm_manager_.playWithCrossfade("bgm3", 0.5f);
           break;
         }
         case SDL_SCANCODE_5: {
@@ -501,7 +502,7 @@ class TestImpl3 final : public GameImpl {
 
     // BGM1:
     {
-      auto bgm = std::make_unique<MultiTrackSequencer>(4);
+      auto bgm = std::make_unique<MultiTrackSequencer>(4, 44100, 120.0f, false);  // ストリームなしモード
       bgm->setMasterVolume(bgm_master_volume_);
       bgm->setLoop(true, -1);  // 無限ループ
       // bgm->setUpdateInterval(1); // 精度上げる時用のメモ(デフォルト15ms)
@@ -544,7 +545,7 @@ class TestImpl3 final : public GameImpl {
 
     // BGM2:
     {
-      auto bgm = std::make_unique<MultiTrackSequencer>(3);
+      auto bgm = std::make_unique<MultiTrackSequencer>(3, 44100, 80.0f, false);  // ストリームなしモード
       bgm->setMasterVolume(bgm_master_volume_);
       bgm->setLoop(true, -1);  // 無限ループ
       // bgm->setUpdateInterval(1); // 精度上げる時用のメモ(デフォルト15ms)
@@ -582,7 +583,7 @@ class TestImpl3 final : public GameImpl {
 
     // BGM3:
     {
-      auto bgm = std::make_unique<MultiTrackSequencer>(3);
+      auto bgm = std::make_unique<MultiTrackSequencer>(3, 44100, 160.0f, false);  // ストリームなしモード
       bgm->setMasterVolume(bgm_master_volume_);
       bgm->setLoop(true, -1);  // 無限ループ
       // bgm->setUpdateInterval(93); // BPM160の16分音符ms = 60/160/4*1000 = 93.75

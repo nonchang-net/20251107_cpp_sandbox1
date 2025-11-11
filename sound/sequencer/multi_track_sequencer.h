@@ -24,8 +24,9 @@ class MultiTrackSequencer {
    * @param track_count トラック数
    * @param sample_rate サンプリングレート
    * @param bpm BPM
+   * @param enable_stream オーディオストリームを有効にするか（falseの場合はサンプル生成のみ）
    */
-  explicit MultiTrackSequencer(size_t track_count, int sample_rate = 44100, float bpm = 120.0f);
+  explicit MultiTrackSequencer(size_t track_count, int sample_rate = 44100, float bpm = 120.0f, bool enable_stream = true);
 
   /**
    * @brief トラック数を取得
@@ -168,8 +169,27 @@ class MultiTrackSequencer {
    */
   AudioMixer* getMixer();
 
+  /**
+   * @brief サンプルを生成（BGMManager用）
+   *
+   * この関数は主にBGMManagerから呼ばれることを想定しています。
+   * ストリームなしモードで作成されたMultiTrackSequencerの場合、
+   * この関数を明示的に呼び出してサンプルを取得します。
+   *
+   * @param samples 出力バッファ
+   * @param num_samples サンプル数
+   */
+  void generateSamples(float* samples, int num_samples);
+
+  /**
+   * @brief サンプリングレートを取得
+   * @return サンプリングレート
+   */
+  int getSampleRate() const;
+
  private:
   size_t track_count_;
+  int sample_rate_;
   float bpm_;
   float master_volume_;
   bool is_paused_;
