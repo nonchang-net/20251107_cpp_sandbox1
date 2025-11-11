@@ -1,6 +1,7 @@
 #pragma once
 
 #include <SDL3/SDL.h>
+#include "audio_effect.h"
 
 namespace MySound {
 
@@ -39,7 +40,7 @@ enum class BiquadFilterType {
  *
  * 参考: Robert Bristow-Johnson "Cookbook formulae for audio EQ biquad filter coefficients"
  */
-class BiquadFilter {
+class BiquadFilter : public AudioEffect {
  public:
   /**
    * @brief コンストラクタ
@@ -112,12 +113,12 @@ class BiquadFilter {
    * @param input 入力サンプル
    * @return フィルタリング後のサンプル
    */
-  float process(float input);
+  float process(float input) override;
 
   /**
    * @brief フィルター状態をリセット
    */
-  void reset();
+  void reset() override;
 
  private:
   /**

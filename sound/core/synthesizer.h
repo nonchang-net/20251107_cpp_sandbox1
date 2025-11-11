@@ -2,17 +2,13 @@
 
 #include <SDL3/SDL.h>
 #include <memory>
+#include <vector>
 #include "oscillator.h"
 #include "envelope.h"
-#include "../effect/biquad_filter.h"
-#include "../effect/volume_modulation.h"
+#include "../effect/audio_effect.h"
 #include "../sound_constants.h"
 
 namespace MySound {
-
-// 前方宣言
-class BiquadFilter;
-class VolumeModulation;
 
 /**
  * @brief シンプルなシンセサイザー
@@ -86,67 +82,45 @@ class SimpleSynthesizer {
   int getSampleRate() const;
 
   /**
-   * @brief フィルターを有効化
+   * @brief エフェクトを追加
    *
-   * フィルターを有効化します。デフォルトはLowpassフィルター（1000Hz, Q=1.0）です。
-   * getFilter()でフィルターのパラメータを調整できます。
+   * エフェクトをエフェクトチェーンの末尾に追加します。
+   * エフェクトの所有権はシンセサイザーに移動します。
+   * 追加したエフェクトは追加順に直列に処理されます。
+   *
+   * @param effect 追加するエフェクト（所有権を移動）
+   *
+   * 使用例:
+   * @code
+   * // BiquadFilterを追加
+   * auto filter = std::make_unique<BiquadFilter>(44100);
+   * filter->setType(BiquadFilterType::Lowpass);
+   * filter->setFrequency(1000.0f);
+   * synth->addEffect(std::move(filter));
+   *
+   * // VolumeModulationを追加
+   * auto tremolo = std::make_unique<VolumeModulation>(44100);
+   * tremolo->setRate(5.0f);
+   * tremolo->setDepth(0.5f);
+   * synth->addEffect(std::move(tremolo));
+   * @endcode
    */
-  void enableFilter();
+  void addEffect(std::unique_ptr<AudioEffect> effect);
 
   /**
-   * @brief フィルターを無効化
+   * @brief 全てのエフェクトを削除
    *
-   * フィルターを無効化します。無効化時は処理コストがほぼゼロになります。
+   * エフェクトチェーンから全てのエフェクトを削除します。
+   * エフェクトを変更する際は、一度clearEffects()で全削除してから
+   * 改めてaddEffect()で追加し直すことを推奨します。
    */
-  void disableFilter();
+  void clearEffects();
 
   /**
-   * @brief フィルターが有効かどうか
-   * @return フィルターが有効ならtrue
+   * @brief エフェクト数を取得
+   * @return 現在設定されているエフェクトの数
    */
-  bool isFilterEnabled() const;
-
-  /**
-   * @brief フィルターを取得
-   *
-   * フィルターのパラメータを調整するためのアクセサ。
-   * フィルターが無効の場合はnullptrを返します。
-   *
-   * @return フィルターへのポインタ（無効時はnullptr）
-   */
-  BiquadFilter* getFilter();
-
-  /**
-   * @brief ボリュームモジュレーション（トレモロ）を有効化
-   *
-   * ボリュームモジュレーションを有効化します。
-   * デフォルトは5Hz、50%の深さ、サイン波です。
-   * getVolumeModulation()でパラメータを調整できます。
-   */
-  void enableVolumeModulation();
-
-  /**
-   * @brief ボリュームモジュレーション（トレモロ）を無効化
-   *
-   * ボリュームモジュレーションを無効化します。無効化時は処理コストがほぼゼロになります。
-   */
-  void disableVolumeModulation();
-
-  /**
-   * @brief ボリュームモジュレーションが有効かどうか
-   * @return ボリュームモジュレーションが有効ならtrue
-   */
-  bool isVolumeModulationEnabled() const;
-
-  /**
-   * @brief ボリュームモジュレーションを取得
-   *
-   * ボリュームモジュレーションのパラメータを調整するためのアクセサ。
-   * ボリュームモジュレーションが無効の場合はnullptrを返します。
-   *
-   * @return ボリュームモジュレーションへのポインタ（無効時はnullptr）
-   */
-  VolumeModulation* getVolumeModulation();
+  size_t getEffectCount() const;
 
  private:
   /**
@@ -174,8 +148,7 @@ class SimpleSynthesizer {
 
   std::unique_ptr<Oscillator> oscillator_;          // オシレーター
   std::unique_ptr<Envelope> envelope_;              // エンベロープ
-  std::unique_ptr<BiquadFilter> filter_;            // Biquadフィルター（nullptrなら無効）
-  std::unique_ptr<VolumeModulation> volume_mod_;    // ボリュームモジュレーション（nullptrなら無効）
+  std::vector<std::unique_ptr<AudioEffect>> effects_;  // エフェクトチェーン（追加順に処理）
   SDL_AudioStream* stream_;                         // オーディオストリーム
 
   int sample_rate_;       // サンプリングレート

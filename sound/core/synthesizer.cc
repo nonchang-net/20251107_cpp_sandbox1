@@ -14,8 +14,7 @@ namespace MySound {
 SimpleSynthesizer::SimpleSynthesizer(int sample_rate)
     : oscillator_(std::make_unique<Oscillator>(WaveType::Sine, DEFAULT_FREQUENCY)),
       envelope_(std::make_unique<Envelope>()),
-      filter_(nullptr),      // フィルターはデフォルトで無効
-      volume_mod_(nullptr),  // ボリュームモジュレーションはデフォルトで無効
+      effects_(),            // エフェクトチェーンは空で初期化
       stream_(nullptr),
       sample_rate_(sample_rate),
       current_sample_(0),
@@ -135,56 +134,20 @@ int SimpleSynthesizer::getSampleRate() const {
   return sample_rate_;
 }
 
-void SimpleSynthesizer::enableFilter() {
-  if (!filter_) {
-    filter_ = std::make_unique<BiquadFilter>(sample_rate_);
-    // デフォルト設定: Lowpass 1000Hz, Q=1.0
-    filter_->setType(BiquadFilterType::Lowpass);
-    filter_->setFrequency(1000.0f);
-    filter_->setQ(1.0f);
-    SYNTH_LOG("Filter enabled: Lowpass 1000Hz Q=1.0");
+void SimpleSynthesizer::addEffect(std::unique_ptr<AudioEffect> effect) {
+  if (effect) {
+    effects_.push_back(std::move(effect));
+    SYNTH_LOG("Effect added to chain (total: %zu effects)", effects_.size());
   }
 }
 
-void SimpleSynthesizer::disableFilter() {
-  if (filter_) {
-    filter_.reset();
-    SYNTH_LOG("Filter disabled");
-  }
+void SimpleSynthesizer::clearEffects() {
+  effects_.clear();
+  SYNTH_LOG("All effects cleared");
 }
 
-bool SimpleSynthesizer::isFilterEnabled() const {
-  return filter_ != nullptr;
-}
-
-BiquadFilter* SimpleSynthesizer::getFilter() {
-  return filter_.get();
-}
-
-void SimpleSynthesizer::enableVolumeModulation() {
-  if (!volume_mod_) {
-    volume_mod_ = std::make_unique<VolumeModulation>(sample_rate_);
-    // デフォルト設定: 5Hz, 50% depth, Sine wave
-    volume_mod_->setRate(5.0f);
-    volume_mod_->setDepth(0.5f);
-    volume_mod_->setWaveType(WaveType::Sine);
-    SYNTH_LOG("VolumeModulation enabled: 5Hz Depth=0.5 Sine");
-  }
-}
-
-void SimpleSynthesizer::disableVolumeModulation() {
-  if (volume_mod_) {
-    volume_mod_.reset();
-    SYNTH_LOG("VolumeModulation disabled");
-  }
-}
-
-bool SimpleSynthesizer::isVolumeModulationEnabled() const {
-  return volume_mod_ != nullptr;
-}
-
-VolumeModulation* SimpleSynthesizer::getVolumeModulation() {
-  return volume_mod_.get();
+size_t SimpleSynthesizer::getEffectCount() const {
+  return effects_.size();
 }
 
 void SDLCALL SimpleSynthesizer::audioCallback(void* userdata, SDL_AudioStream* stream,
@@ -234,14 +197,9 @@ void SimpleSynthesizer::generateSamples(float* samples, int num_samples) {
     // 最終ボリューム = 波形 × エンベロープ × ノートボリューム × マスターボリューム
     samples[i] = wave * envelope_value * note_volume_ * master_volume_;
 
-    // フィルター適用（有効な場合のみ）
-    if (filter_) {
-      samples[i] = filter_->process(samples[i]);
-    }
-
-    // ボリュームモジュレーション適用（有効な場合のみ）
-    if (volume_mod_) {
-      samples[i] = volume_mod_->process(samples[i]);
+    // エフェクトチェーンを適用（追加順に処理）
+    for (auto& effect : effects_) {
+      samples[i] = effect->process(samples[i]);
     }
 
     // クリッピング防止

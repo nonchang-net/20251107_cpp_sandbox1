@@ -266,30 +266,34 @@ class TestImpl3 final : public GameImpl {
         case SDL_SCANCODE_8: {
           // ノイズ＋フィルターテスト1
           synthesizer_->getOscillator().setWaveType(WaveType::Noise);
-          synthesizer_->enableFilter();
+          synthesizer_->clearEffects();  // 既存エフェクトをクリア
 
-          auto* filter = synthesizer_->getFilter();
+          auto filter = std::make_unique<BiquadFilter>(synthesizer_->getSampleRate());
           filter->setType(BiquadFilterType::Lowpass);
           filter->setFrequency(2000.0f);  // 2kHz以下のノイズのみ通過
           filter->setQ(0.7f);
+          synthesizer_->addEffect(std::move(filter));
 
           synthesizer_->noteOn(440.0f, 1.0f);  // フィルタリングされたノイズ
           break;
         }
         
         case SDL_SCANCODE_9: {
-          // ノイズ＋フィルターテスト2
+          // ノイズ＋フィルターテスト2（複数エフェクトの組み合わせ）
           synthesizer_->getOscillator().setWaveType(WaveType::Noise);
-          synthesizer_->enableFilter();
-          synthesizer_->enableVolumeModulation();
+          synthesizer_->clearEffects();  // 既存エフェクトをクリア
 
-          auto* filter = synthesizer_->getFilter();
+          // フィルターを追加
+          auto filter = std::make_unique<BiquadFilter>(synthesizer_->getSampleRate());
           filter->setType(BiquadFilterType::Highpass);
           filter->setFrequency(5000.0f);  // 5kHz以上のみ通過
           filter->setQ(1.5f);
+          synthesizer_->addEffect(std::move(filter));
 
-          auto* volume_mod = synthesizer_->getVolumeModulation();
+          // ボリュームモジュレーションを追加
+          auto volume_mod = std::make_unique<VolumeModulation>(synthesizer_->getSampleRate());
           volume_mod->setWaveType(WaveType::Square);
+          synthesizer_->addEffect(std::move(volume_mod));
 
           synthesizer_->noteOn(440.0f, 0.1f);  // 短いハイハット風の音
           break;
