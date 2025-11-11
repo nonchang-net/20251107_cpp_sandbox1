@@ -20,6 +20,7 @@ set(SOUND_SOURCES
     sound/sequencer/multi_track_sequencer.cc
     sound/sequencer/bgm_manager.cc
     sound/effect/biquad_filter.cc
+    sound/effect/volume_modulation.cc
 )
 add_library(sound ${SOUND_SOURCES})
 target_link_libraries(sound PRIVATE SDL3::SDL3)

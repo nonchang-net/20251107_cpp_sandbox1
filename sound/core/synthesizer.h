@@ -5,12 +5,14 @@
 #include "oscillator.h"
 #include "envelope.h"
 #include "../effect/biquad_filter.h"
+#include "../effect/volume_modulation.h"
 #include "../sound_constants.h"
 
 namespace MySound {
 
 // 前方宣言
 class BiquadFilter;
+class VolumeModulation;
 
 /**
  * @brief シンプルなシンセサイザー
@@ -114,6 +116,38 @@ class SimpleSynthesizer {
    */
   BiquadFilter* getFilter();
 
+  /**
+   * @brief ボリュームモジュレーション（トレモロ）を有効化
+   *
+   * ボリュームモジュレーションを有効化します。
+   * デフォルトは5Hz、50%の深さ、サイン波です。
+   * getVolumeModulation()でパラメータを調整できます。
+   */
+  void enableVolumeModulation();
+
+  /**
+   * @brief ボリュームモジュレーション（トレモロ）を無効化
+   *
+   * ボリュームモジュレーションを無効化します。無効化時は処理コストがほぼゼロになります。
+   */
+  void disableVolumeModulation();
+
+  /**
+   * @brief ボリュームモジュレーションが有効かどうか
+   * @return ボリュームモジュレーションが有効ならtrue
+   */
+  bool isVolumeModulationEnabled() const;
+
+  /**
+   * @brief ボリュームモジュレーションを取得
+   *
+   * ボリュームモジュレーションのパラメータを調整するためのアクセサ。
+   * ボリュームモジュレーションが無効の場合はnullptrを返します。
+   *
+   * @return ボリュームモジュレーションへのポインタ（無効時はnullptr）
+   */
+  VolumeModulation* getVolumeModulation();
+
  private:
   /**
    * @brief オーディオコールバック（静的メソッド）
@@ -138,10 +172,11 @@ class SimpleSynthesizer {
    */
   float getCurrentTime() const;
 
-  std::unique_ptr<Oscillator> oscillator_;   // オシレーター
-  std::unique_ptr<Envelope> envelope_;       // エンベロープ
-  std::unique_ptr<BiquadFilter> filter_;     // Biquadフィルター（nullptrなら無効）
-  SDL_AudioStream* stream_;                  // オーディオストリーム
+  std::unique_ptr<Oscillator> oscillator_;          // オシレーター
+  std::unique_ptr<Envelope> envelope_;              // エンベロープ
+  std::unique_ptr<BiquadFilter> filter_;            // Biquadフィルター（nullptrなら無効）
+  std::unique_ptr<VolumeModulation> volume_mod_;    // ボリュームモジュレーション（nullptrなら無効）
+  SDL_AudioStream* stream_;                         // オーディオストリーム
 
   int sample_rate_;       // サンプリングレート
   Uint64 current_sample_; // 現在のサンプル位置

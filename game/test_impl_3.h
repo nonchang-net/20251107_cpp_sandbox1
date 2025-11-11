@@ -281,11 +281,15 @@ class TestImpl3 final : public GameImpl {
           // ノイズ＋フィルターテスト2
           synthesizer_->getOscillator().setWaveType(WaveType::Noise);
           synthesizer_->enableFilter();
+          synthesizer_->enableVolumeModulation();
 
           auto* filter = synthesizer_->getFilter();
           filter->setType(BiquadFilterType::Highpass);
           filter->setFrequency(5000.0f);  // 5kHz以上のみ通過
           filter->setQ(1.5f);
+
+          auto* volume_mod = synthesizer_->getVolumeModulation();
+          volume_mod->setWaveType(WaveType::Square);
 
           synthesizer_->noteOn(440.0f, 0.1f);  // 短いハイハット風の音
           break;
@@ -540,23 +544,25 @@ class TestImpl3 final : public GameImpl {
       // track1:
       bgm->getSynthesizer(0)->getEnvelope().setADSR(0.01f, 0.1f, 0.5f, 0.1f);
       bgm->setTrackSequence(0,
-        "t120 o3 l8 @1 v8"_mml
-        "e4. d8  c4. f8  e4. c8  e4. r8 "_mml
-        // "aa>a<a a>a<a<a- ra->a-<a- a-<a->b-<b-"_mml
+        "t80 o3 l8 @1 v8"_mml
+        "e4 d8  e4 f8  e4 c8     d4 c16 d16 "_mml
+        "e4 c8  e4 f8  e8 f8 d8  c4. "_mml
+        
       );
       // track2:
       bgm->getSynthesizer(1)->getEnvelope().setADSR(0.01f, 0.1f, 0.5f, 0.1f);
       bgm->setTrackSequence(1,
-        "t120 o4 l8 @2 v5"_mml
-        "c2 c2 c2. g4 "_mml
+        "t80 o4 l8 @2 v5"_mml
+        "c4. c4. c4. <g4.> "_mml
+        "c4. f4. g4. c4. "_mml
         // "fefg ab-r>c rcrc< b-rb-r"_mml
       );
       // track3:
       bgm->getSynthesizer(2)->getEnvelope().setADSR(0.01f, 0.1f, 0.5f, 0.1f);
       bgm->setTrackSequence(2,
-        "t120 o3 l8 @0 v10"_mml
-        "cgec cgec cgec cgec "_mml
-        // "fefg ab-r>c rcrc< b-rb-r"_mml
+        "t80 o3 l8 @0 v10"_mml
+        "cgg cgg cgg cgg "_mml
+        "cgg caa dff cgg "_mml
       );
       bgm_manager_.registerBGM("bgm2", std::move(bgm));
     }

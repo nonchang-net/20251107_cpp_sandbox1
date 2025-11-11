@@ -56,4 +56,6 @@
 #include "sequencer/bgm_manager.h"
 
 // エフェクト
+#include "effect/audio_effect.h"
 #include "effect/biquad_filter.h"
+#include "effect/volume_modulation.h"
