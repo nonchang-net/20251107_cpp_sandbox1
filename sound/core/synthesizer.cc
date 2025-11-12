@@ -30,7 +30,7 @@ SimpleSynthesizer::SimpleSynthesizer(int sample_rate, bool enable_stream)
   // ストリームありモードの場合のみオーディオストリームを初期化
   if (enable_stream) {
     // オーディオストリームを初期化（コールバック方式）
-    SDL_AudioSpec spec;
+    SDL_AudioSpec spec = {};     // ゼロ初期化
     spec.channels = 1;           // モノラル
     spec.format = SDL_AUDIO_F32; // 32ビット浮動小数点
     spec.freq = sample_rate_;

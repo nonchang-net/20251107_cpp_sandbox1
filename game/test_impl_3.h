@@ -204,6 +204,9 @@ class TestImpl3 final : public GameImpl {
     // BGMマネージャーの初期化
     initializeBGMManager();
 
+    // 初期BGM再生
+    bgm_manager_.play("bgm1");
+
     // テクスチャ読み込み後にエンティティを初期化
     initializeEntities();
   }

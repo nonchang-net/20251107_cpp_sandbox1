@@ -24,6 +24,14 @@ class BGMManager {
   explicit BGMManager(int sample_rate = 44100);
 
   /**
+   * @brief デストラクタ
+   *
+   * オーディオストリームを停止してからBGMを破棄することで、
+   * コールバック実行中のダングリングポインタアクセスを防ぎます。
+   */
+  ~BGMManager();
+
+  /**
    * @brief BGMを登録
    * @param id BGM ID
    * @param bgm マルチトラックシーケンサー（ストリームなしモードで作成すること）

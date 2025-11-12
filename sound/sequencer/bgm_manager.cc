@@ -9,8 +9,8 @@ BGMManager::BGMManager(int sample_rate)
       last_update_time_(SDL_GetTicks()) {
 
   // オーディオストリームを初期化（コールバック方式）
-  SDL_AudioSpec spec;
-  spec.channels = 1;           // モノラル
+  SDL_AudioSpec spec = {};     // ゼロ初期化
+  spec.channels = 2;           // ステレオ（MultiTrackSequencerに合わせる）
   spec.format = SDL_AUDIO_F32; // 32ビット浮動小数点
   spec.freq = sample_rate_;
 
@@ -30,6 +30,20 @@ BGMManager::BGMManager(int sample_rate)
   if (!SDL_ResumeAudioStreamDevice(stream_)) {
     SDL_LogError(SDL_LOG_CATEGORY_AUDIO, "BGMManager: Failed to resume audio device: %s", SDL_GetError());
   }
+}
+
+BGMManager::~BGMManager() {
+  // オーディオコールバックを停止するため、まずストリームを破棄
+  if (stream_) {
+    SDL_DestroyAudioStream(stream_);
+    stream_ = nullptr;
+  }
+
+  // フェード状態の生ポインタをクリア（安全のため）
+  fade_in_.bgm = nullptr;
+  fade_out_.bgm = nullptr;
+
+  // この後、デフォルトのデストラクタでbgm_map_が破棄される
 }
 
 void BGMManager::registerBGM(const std::string& id, std::unique_ptr<MultiTrackSequencer> bgm) {

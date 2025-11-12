@@ -9,7 +9,7 @@ MultiTrackSequencer::MultiTrackSequencer(size_t track_count, int sample_rate, fl
       bpm_(bpm),
       master_volume_(1.0f),
       is_paused_(false),
-      mixer_(std::make_unique<AudioMixer>(sample_rate, enable_stream)) {
+      mixer_(std::make_unique<AudioMixer>(sample_rate, 2, enable_stream)) {  // 2チャンネル（ステレオ）
 
   // トラック数分のシンセサイザーとシーケンサーを生成
   // 注: シンセサイザーはストリームなしモード（enable_stream=false）で作成

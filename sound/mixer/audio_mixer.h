@@ -40,9 +40,12 @@ class AudioMixer {
   /**
    * @brief コンストラクタ
    * @param sample_rate サンプリングレート
+   * @param num_output_channels 出力チャンネル数（1=モノラル、2=ステレオ、3以上=マルチチャンネル）
    * @param enable_stream オーディオストリームを有効にするか（falseの場合はミキシングのみ）
    */
-  explicit AudioMixer(int sample_rate = DEFAULT_SAMPLE_RATE, bool enable_stream = true);
+  explicit AudioMixer(int sample_rate = DEFAULT_SAMPLE_RATE,
+                      int num_output_channels = 2,
+                      bool enable_stream = true);
 
   /**
    * @brief デストラクタ
@@ -73,6 +76,37 @@ class AudioMixer {
    * @return 登録されているシンセサイザーの数
    */
   size_t getSynthesizerCount() const;
+
+  /**
+   * @brief センドレベルを設定
+   *
+   * 指定されたシンセサイザー（入力チャンネル）から指定された出力チャンネルへの
+   * センドレベル（音量）を設定します。
+   *
+   * @param synth_index シンセサイザーのインデックス（0から始まる）
+   * @param output_channel 出力チャンネル番号（0から始まる）
+   * @param level センドレベル（0.0〜1.0）
+   */
+  void setSendLevel(size_t synth_index, size_t output_channel, float level);
+
+  /**
+   * @brief センドレベルを取得
+   * @param synth_index シンセサイザーのインデックス
+   * @param output_channel 出力チャンネル番号
+   * @return センドレベル（0.0〜1.0）
+   */
+  float getSendLevel(size_t synth_index, size_t output_channel) const;
+
+  /**
+   * @brief ステレオパンを設定（2チャンネル出力専用）
+   *
+   * ステレオ出力（2チャンネル）の場合のパン設定のヘルパーメソッドです。
+   * 内部的には各出力チャンネルへのセンドレベルとして設定されます。
+   *
+   * @param synth_index シンセサイザーのインデックス
+   * @param pan パン値（-1.0=左、0.0=中央、1.0=右）
+   */
+  void setPan(size_t synth_index, float pan);
 
   /**
    * @brief エフェクトを追加
@@ -115,6 +149,12 @@ class AudioMixer {
   int getSampleRate() const;
 
   /**
+   * @brief 出力チャンネル数を取得
+   * @return 出力チャンネル数
+   */
+  int getNumOutputChannels() const;
+
+  /**
    * @brief サンプルを生成（ストリームなしモード用）
    *
    * ストリームなしモードで作成されたAudioMixerの場合、
@@ -151,8 +191,10 @@ class AudioMixer {
   std::vector<std::unique_ptr<AudioEffect>> effects_;  // エフェクトチェーン
   SDL_AudioStream* stream_;                            // オーディオストリーム
 
-  int sample_rate_;       // サンプリングレート
-  float master_volume_;   // マスターボリューム（0.0〜1.0）
+  int sample_rate_;                    // サンプリングレート
+  int num_output_channels_;            // 出力チャンネル数
+  float master_volume_;                // マスターボリューム（0.0〜1.0）
+  std::vector<std::vector<float>> send_levels_;  // センドレベル[synth_index][output_channel]
 };
 
 }  // namespace MySound
