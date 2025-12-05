@@ -16,8 +16,8 @@ const int WINDOW_WIDTH = SNAKE_BLOCK_SIZE_IN_PIXELS * SNAKE_GAME_WIDTH;
 const int WINDOW_HEIGHT = SNAKE_BLOCK_SIZE_IN_PIXELS * SNAKE_GAME_HEIGHT;
 const int SNAKE_MATRIX_SIZE = SNAKE_GAME_WIDTH * SNAKE_GAME_HEIGHT;
 const unsigned int SNAKE_CELL_MAX_BITS =
-    3U; /* floor(log2(SNAKE_CELL_FOOD)) + 1 */
-const int SNAKE_CELL_SET_BITS = (~(~0u << SNAKE_CELL_MAX_BITS));
+    3U; // 元コードメモ:  floor(log2(SNAKE_CELL_FOOD)) + 1;
+const int SNAKE_CELL_SET_BITS = (~(~0u << SNAKE_CELL_MAX_BITS)); // 3Uの際には7U(=0b111)になり、3bit分のフラグ部分のマスクとなる
 
 typedef enum {
   SNAKE_CELL_NOTHING = 0U,

@@ -4,10 +4,13 @@ namespace MyGame::SnakeGame {
 
 #pragma region non-member
 
+// cellsに対する操作ビット位置を算出する
+// - CELL_FOOD(5U)までのenum値は3bitに収まることをSNAKE_CELL_MAX_BITSで計算済み
 int shift(int x, int y) {
-  return x + y * SNAKE_GAME_WIDTH * SNAKE_CELL_MAX_BITS;
+  return (x + y * SNAKE_GAME_WIDTH) * SNAKE_CELL_MAX_BITS;
 }
 
+// 上下方向に突き抜けたら反対側へ
 void wrap_around_(char* val, char max) {
   if (*val < 0) {
     *val = max - 1;
