@@ -14,8 +14,8 @@
 
 // 使用するゲーム実装の型を選択
 // using CurrentGameType = MyGame::TestImpl2;
-// using CurrentGameType = MyGame::TestImpl3;
-using CurrentGameType = MyGame::SnakeGame::SnakeGame;
+using CurrentGameType = MyGame::TestImpl3;
+// using CurrentGameType = MyGame::SnakeGame::SnakeGame;
 
 struct AppState {
   std::unique_ptr<MyGame::GameManager<CurrentGameType>> gameManager;

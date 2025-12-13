@@ -14,7 +14,10 @@
       "cStandard": "c17",
       "cppStandard": "c++20",
       "intelliSenseMode": "macos-clang-arm64",
-      "compileCommands": "${workspaceFolder}/build/compile_commands.json"
+      "compileCommands": "${workspaceFolder}/build/compile_commands.json",
+      "forcedInclude": [
+        "${workspaceFolder}/game_manager/component.h"
+      ]
     }
   ],
   "version": 4
