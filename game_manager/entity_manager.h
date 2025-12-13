@@ -739,16 +739,23 @@ class EntityManager {
 
 }  // namespace MyGame
 
-// コンポーネント実装ファイルをインクルード（Entityの完全な定義の後）
-#include "components/velocity_impl.h"
-#include "components/sprite_animator_impl.h"
-#include "components/bounce_on_edge_impl.h"
-#include "components/blink_impl.h"
-#include "components/dynamic_pivot_impl.h"
-#include "components/renderers/rect_renderer_impl.h"
-#include "components/renderers/rotated_rect_renderer_impl.h"
-#include "components/renderers/text_renderer_impl.h"
-#include "components/renderers/sprite_renderer_impl.h"
+// Entityの完全な定義が完了したことを示すマクロ
+// このマクロにより、各コンポーネントヘッダーの実装部分が有効になる
+#define MYGAME_ENTITY_DEFINED
+
+// コンポーネントヘッダーを再インクルード（実装部分を有効化するため）
+#include "components/transform.h"
+#include "components/velocity.h"
+#include "components/direction.h"
+#include "components/ui_anchor.h"
+#include "components/sprite_animator.h"
+#include "components/bounce_on_edge.h"
+#include "components/blink.h"
+#include "components/dynamic_pivot.h"
+#include "components/renderers/rect_renderer.h"
+#include "components/renderers/rotated_rect_renderer.h"
+#include "components/renderers/text_renderer.h"
+#include "components/renderers/sprite_renderer.h"
 
 // ヘルパー関数をインクルード
 #include "entity_helpers.h"

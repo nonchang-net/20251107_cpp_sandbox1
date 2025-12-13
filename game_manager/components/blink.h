@@ -1,4 +1,5 @@
-#pragma once
+#ifndef MYGAME_BLINK_H_INCLUDED
+#define MYGAME_BLINK_H_INCLUDED
 
 #include <SDL3/SDL.h>
 
@@ -49,3 +50,29 @@ class Blink : public Component {
 };
 
 }  // namespace MyGame
+
+#endif  // MYGAME_BLINK_H_INCLUDED
+
+// ========================================================================
+// 実装部分（条件付きコンパイル）
+// ========================================================================
+#if defined(MYGAME_ENTITY_DEFINED) && !defined(MYGAME_BLINK_IMPL_INCLUDED)
+#define MYGAME_BLINK_IMPL_INCLUDED
+
+namespace MyGame {
+
+// Blinkの実装
+inline void Blink::update(Entity* entity, Uint64 delta_time) {
+  if (entity->getStateFlag(blinking_flag_index_)) {
+    timer_ += delta_time;
+    if (timer_ > interval_) {
+      entity->setStateFlag(visible_flag_index_,
+                          !entity->getStateFlag(visible_flag_index_));
+      timer_ = 0;
+    }
+  }
+}
+
+}  // namespace MyGame
+
+#endif  // MYGAME_ENTITY_DEFINED && !MYGAME_BLINK_IMPL_INCLUDED

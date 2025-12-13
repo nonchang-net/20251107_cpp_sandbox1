@@ -1,4 +1,5 @@
-#pragma once
+#ifndef MYGAME_BOUNCE_ON_EDGE_H_INCLUDED
+#define MYGAME_BOUNCE_ON_EDGE_H_INCLUDED
 
 #include <SDL3/SDL.h>
 
@@ -45,3 +46,46 @@ class BounceOnEdge : public Component {
 };
 
 }  // namespace MyGame
+
+#endif  // MYGAME_BOUNCE_ON_EDGE_H_INCLUDED
+
+// ========================================================================
+// 実装部分（条件付きコンパイル）
+// ========================================================================
+#if defined(MYGAME_ENTITY_DEFINED) && !defined(MYGAME_BOUNCE_ON_EDGE_IMPL_INCLUDED)
+#define MYGAME_BOUNCE_ON_EDGE_IMPL_INCLUDED
+
+namespace MyGame {
+
+// BounceOnEdgeの実装
+inline void BounceOnEdge::update(Entity* entity, Uint64 delta_time) {
+  auto* locator = entity->getComponent<Locator>();
+  auto* velocity = entity->getComponent<VelocityMove>();
+  auto* renderer = entity->getComponent<RectRenderer>();
+
+  if (!locator || !velocity || !renderer) {
+    return;
+  }
+
+  auto [x, y] = locator->getPosition();
+  auto [w, h] = renderer->getSize();
+  auto [vx, vy] = velocity->getVelocity();
+
+  bool changed = false;
+  if (x < 0 || x + w > screen_width_) {
+    vx = -vx;
+    changed = true;
+  }
+  if (y < 0 || y + h > screen_height_) {
+    vy = -vy;
+    changed = true;
+  }
+
+  if (changed) {
+    velocity->setVelocity(vx, vy);
+  }
+}
+
+}  // namespace MyGame
+
+#endif  // MYGAME_ENTITY_DEFINED && !MYGAME_BOUNCE_ON_EDGE_IMPL_INCLUDED

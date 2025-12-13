@@ -1,4 +1,5 @@
-#pragma once
+#ifndef MYGAME_SPRITE_ANIMATOR_H_INCLUDED
+#define MYGAME_SPRITE_ANIMATOR_H_INCLUDED
 
 #include <SDL3/SDL.h>
 
@@ -114,3 +115,104 @@ class DirectionalSpriteAnimator : public Component {
 };
 
 }  // namespace MyGame
+
+#endif  // MYGAME_SPRITE_ANIMATOR_H_INCLUDED
+
+// ========================================================================
+// 実装部分（条件付きコンパイル）
+// ========================================================================
+#if defined(MYGAME_ENTITY_DEFINED) && !defined(MYGAME_SPRITE_ANIMATOR_IMPL_INCLUDED)
+#define MYGAME_SPRITE_ANIMATOR_IMPL_INCLUDED
+
+namespace MyGame {
+
+// SpriteAnimatorの実装
+inline void SpriteAnimator::update(Entity* entity, Uint64 delta_time) {
+  if (frames_.empty()) return;
+
+  // SpriteRendererコンポーネントを取得
+  auto* sprite_renderer = entity->getComponent<SpriteRenderer>();
+  if (!sprite_renderer) return;
+
+  // タイマーを進める
+  timer_ += delta_time;
+
+  // フレーム切り替えが必要かチェック
+  if (timer_ >= frame_duration_) {
+    timer_ -= frame_duration_;
+
+    // 次のフレームへ
+    current_frame_ = (current_frame_ + 1) % frames_.size();
+
+    // SpriteRendererのタイルを更新
+    auto [tile_x, tile_y] = frames_[current_frame_];
+    sprite_renderer->setTile(tile_x, tile_y);
+  }
+}
+
+// DirectionalSpriteAnimatorの実装
+inline void DirectionalSpriteAnimator::update(Entity* entity, Uint64 delta_time) {
+  // DirectionComponentを取得
+  auto* direction_comp = entity->getComponent<DirectionComponent>();
+  if (!direction_comp) return;
+
+  Direction new_direction = direction_comp->getDirection();
+
+  // 向きが変わった場合のみ、フレームを切り替える
+  if (new_direction != current_direction_) {
+    current_direction_ = new_direction;
+
+    auto* animator = entity->getComponent<SpriteAnimator>();
+    auto* sprite_renderer = entity->getComponent<SpriteRenderer>();
+    if (!animator) return;
+
+    // 向きに応じてフレームを設定
+    switch (new_direction) {
+      case Direction::Down:
+        animator->setFrames(down_frames_);
+        if (sprite_renderer && !down_frames_.empty()) {
+          sprite_renderer->setFlipHorizontal(false);
+          auto [tile_x, tile_y] = down_frames_[0];
+          sprite_renderer->setTile(tile_x, tile_y);
+        }
+        break;
+      case Direction::Up:
+        animator->setFrames(up_frames_);
+        if (sprite_renderer && !up_frames_.empty()) {
+          sprite_renderer->setFlipHorizontal(false);
+          auto [tile_x, tile_y] = up_frames_[0];
+          sprite_renderer->setTile(tile_x, tile_y);
+        }
+        break;
+      case Direction::Right:
+        animator->setFrames(right_frames_);
+        if (sprite_renderer && !right_frames_.empty()) {
+          sprite_renderer->setFlipHorizontal(false);
+          auto [tile_x, tile_y] = right_frames_[0];
+          sprite_renderer->setTile(tile_x, tile_y);
+        }
+        break;
+      case Direction::Left:
+        if (left_frames_.empty()) {
+          animator->setFrames(right_frames_);
+          if (sprite_renderer && !right_frames_.empty()) {
+            sprite_renderer->setFlipHorizontal(true);
+            auto [tile_x, tile_y] = right_frames_[0];
+            sprite_renderer->setTile(tile_x, tile_y);
+          }
+        } else {
+          animator->setFrames(left_frames_);
+          if (sprite_renderer && !left_frames_.empty()) {
+            sprite_renderer->setFlipHorizontal(false);
+            auto [tile_x, tile_y] = left_frames_[0];
+            sprite_renderer->setTile(tile_x, tile_y);
+          }
+        }
+        break;
+    }
+  }
+}
+
+}  // namespace MyGame
+
+#endif  // MYGAME_ENTITY_DEFINED && !MYGAME_SPRITE_ANIMATOR_IMPL_INCLUDED
